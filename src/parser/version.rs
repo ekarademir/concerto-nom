@@ -12,15 +12,15 @@ use nom::{
 };
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub struct ParsedVersion {
+pub struct VersionNumber {
     major: u128,
     minor: u128,
     patch: u128,
 }
 
-impl From<(u128,)> for ParsedVersion {
+impl From<(u128,)> for VersionNumber {
     fn from(value: (u128,)) -> Self {
-        ParsedVersion {
+        VersionNumber {
             major: value.0,
             minor: 0,
             patch: 0,
@@ -28,9 +28,9 @@ impl From<(u128,)> for ParsedVersion {
     }
 }
 
-impl From<(u128, u128)> for ParsedVersion {
+impl From<(u128, u128)> for VersionNumber {
     fn from(value: (u128, u128)) -> Self {
-        ParsedVersion {
+        VersionNumber {
             major: value.0,
             minor: value.1,
             patch: 0,
@@ -38,9 +38,9 @@ impl From<(u128, u128)> for ParsedVersion {
     }
 }
 
-impl From<(u128, u128, u128)> for ParsedVersion {
+impl From<(u128, u128, u128)> for VersionNumber {
     fn from(value: (u128, u128, u128)) -> Self {
-        ParsedVersion {
+        VersionNumber {
             major: value.0,
             minor: value.1,
             patch: value.2,
@@ -48,15 +48,17 @@ impl From<(u128, u128, u128)> for ParsedVersion {
     }
 }
 
+/// Representation of semantic version
+/// It can have a pre-release tag attached or not
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub enum ModelVersion {
-    Version(ParsedVersion),
-    VersionWithRelease(ParsedVersion, String),
+pub enum SemanticVersion {
+    Version(VersionNumber),
+    VersionWithRelease(VersionNumber, String),
 }
 
 fn major_only_version_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
-) -> IResult<&'a str, ParsedVersion, E> {
+) -> IResult<&'a str, VersionNumber, E> {
     context(
         "VersionMajorOnly",
         digit1::<&'a str, E>.and_then(u128).map(|m| (m,).into()),
@@ -65,7 +67,7 @@ fn major_only_version_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>
 
 fn major_minor_version_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
-) -> IResult<&'a str, ParsedVersion, E> {
+) -> IResult<&'a str, VersionNumber, E> {
     context(
         "VersionMajorMinor",
         tuple((u128, tag("."), u128)).map(|(maj, _, min)| (maj, min).into()),
@@ -74,7 +76,7 @@ fn major_minor_version_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>
 
 fn major_minor_patch_version_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
-) -> IResult<&'a str, ParsedVersion, E> {
+) -> IResult<&'a str, VersionNumber, E> {
     context(
         "VersionMajorMinorPatch",
         tuple((u128, tag("."), u128, tag("."), u128))
@@ -82,10 +84,10 @@ fn major_minor_patch_version_parser<'a, E: ParseError<&'a str> + ContextError<&'
     )(input)
 }
 
-/// Parses a semantic version_parser, without the pre-release part
-fn version_number_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+/// Parses a semantic version, without the pre-release part
+pub fn version_number_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
-) -> IResult<&'a str, ParsedVersion, E> {
+) -> IResult<&'a str, VersionNumber, E> {
     context(
         "Version",
         alt((
@@ -140,26 +142,28 @@ fn pre_release_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     context("PreRelease", preceded(tag("-"), combined))(input)
 }
 
+/// A version can be provided as major, major.minor, major.minor.patch and
+/// each with a pre-release tag attached with an hyphen
 pub fn version_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
-) -> IResult<&'a str, ModelVersion, E> {
+) -> IResult<&'a str, SemanticVersion, E> {
     let (remains, (ver, maybe_pre)) = context(
         "Version",
         version_number_parser.and(alt((pre_release_parser, eof))),
     )(input)?;
 
     match maybe_pre.len() {
-        0 => Ok((remains, ModelVersion::Version(ver))),
+        0 => Ok((remains, SemanticVersion::Version(ver))),
         _ => Ok((
             remains,
-            ModelVersion::VersionWithRelease(ver, maybe_pre.to_string()),
+            SemanticVersion::VersionWithRelease(ver, maybe_pre.to_string()),
         )),
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::ModelVersion;
+    use super::SemanticVersion;
     use nom::error::VerboseError;
 
     #[test]
@@ -210,40 +214,40 @@ mod test {
     fn test_version() {
         assert_eq!(
             super::version_parser::<VerboseError<&str>>("12"),
-            Ok(("", ModelVersion::Version((12,).into()))),
+            Ok(("", SemanticVersion::Version((12,).into()))),
             "Should parse major only version_parser",
         );
         assert_eq!(
             super::version_parser::<VerboseError<&str>>("12-pre"),
             Ok((
                 "",
-                ModelVersion::VersionWithRelease((12,).into(), "pre".to_string()),
+                SemanticVersion::VersionWithRelease((12,).into(), "pre".to_string()),
             )),
             "Should parse major only version_parser with pre-release tag",
         );
         assert_eq!(
             super::version_parser::<VerboseError<&str>>("12.13"),
-            Ok(("", ModelVersion::Version((12, 13).into()))),
+            Ok(("", SemanticVersion::Version((12, 13).into()))),
             "Should parse major.minor version_parser",
         );
         assert_eq!(
             super::version_parser::<VerboseError<&str>>("12.13-pre"),
             Ok((
                 "",
-                ModelVersion::VersionWithRelease((12, 13).into(), "pre".to_string())
+                SemanticVersion::VersionWithRelease((12, 13).into(), "pre".to_string())
             )),
             "Should parse major.minor version_parser with pre-release tag",
         );
         assert_eq!(
             super::version_parser::<VerboseError<&str>>("12.13.14"),
-            Ok(("", ModelVersion::Version((12, 13, 14).into()))),
+            Ok(("", SemanticVersion::Version((12, 13, 14).into()))),
             "Should parse major.minor.patch version_parser",
         );
         assert_eq!(
             super::version_parser::<VerboseError<&str>>("12.13.14-0.1.pr123"),
             Ok((
                 "",
-                ModelVersion::VersionWithRelease((12, 13, 14).into(), "0.1.pr123".to_string())
+                SemanticVersion::VersionWithRelease((12, 13, 14).into(), "0.1.pr123".to_string())
             )),
             "Should parse major.minor.patch version_parser with pre-release tag",
         );
@@ -251,7 +255,7 @@ mod test {
             super::version_parser::<VerboseError<&str>>("1.0.0-alpha"),
             Ok((
                 "",
-                ModelVersion::VersionWithRelease((1, 0, 0).into(), "alpha".to_string())
+                SemanticVersion::VersionWithRelease((1, 0, 0).into(), "alpha".to_string())
             )),
             "Should parse major.minor.patch version_parser with pre-release tag when tag is all letters",
         );
@@ -259,7 +263,7 @@ mod test {
             super::version_parser::<VerboseError<&str>>("1.0.0-alpha.1"),
             Ok((
                 "",
-                ModelVersion::VersionWithRelease((1, 0, 0).into(), "alpha.1".to_string())
+                SemanticVersion::VersionWithRelease((1, 0, 0).into(), "alpha.1".to_string())
             )),
             "Should parse major.minor.patch version_parser with pre-release tag when tag has dots",
         );

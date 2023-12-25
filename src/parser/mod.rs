@@ -7,10 +7,10 @@ use nom::{
 };
 
 pub use common::token_parser;
-pub use version::{version_parser, ModelVersion};
+pub use version::{version_number_parser, version_parser, SemanticVersion, VersionNumber};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub struct FullyQualifiedName((String, ModelVersion));
+pub struct FullyQualifiedName((String, SemanticVersion));
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum BuiltIn {
@@ -44,7 +44,7 @@ pub fn namespace<'a>(input: &'a str) -> IResult<&'a str, BuiltIn, VerboseError<&
 
 #[cfg(test)]
 mod test {
-    use super::{BuiltIn, FullyQualifiedName, ModelVersion};
+    use super::{BuiltIn, FullyQualifiedName, SemanticVersion};
 
     #[test]
     fn test_fqn() {
@@ -54,7 +54,7 @@ mod test {
                 "",
                 FullyQualifiedName((
                     "test".to_string(),
-                    ModelVersion::Version((12, 13, 14).into())
+                    SemanticVersion::Version((12, 13, 14).into())
                 ))
             )),
         );
@@ -64,7 +64,7 @@ mod test {
                 "",
                 FullyQualifiedName((
                     "test".to_string(),
-                    ModelVersion::VersionWithRelease((12, 13, 14).into(), "pre".to_string())
+                    SemanticVersion::VersionWithRelease((12, 13, 14).into(), "pre".to_string())
                 ))
             ))
         );
@@ -78,7 +78,7 @@ mod test {
                 "",
                 BuiltIn::Namespace(FullyQualifiedName((
                     "test".to_string(),
-                    ModelVersion::Version((1, 0, 2).into())
+                    SemanticVersion::Version((1, 0, 2).into())
                 )))
             ))
         );
@@ -88,7 +88,7 @@ mod test {
                 "",
                 BuiltIn::Namespace(FullyQualifiedName((
                     "test".to_string(),
-                    ModelVersion::VersionWithRelease((1, 0, 2).into(), "beta".to_string())
+                    SemanticVersion::VersionWithRelease((1, 0, 2).into(), "beta".to_string())
                 )))
             ))
         );

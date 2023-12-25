@@ -6,7 +6,7 @@ use nom::{
     IResult,
 };
 
-/// A token_parser starts with a letter and includes alphanumerical characters
+/// A `token` starts with a letter and includes alphanumerical characters
 pub fn token_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
 ) -> IResult<&'a str, &'a str, E> {
@@ -21,7 +21,17 @@ mod test {
     fn test_token() {
         assert_eq!(
             super::token_parser::<VerboseError<&str>>("a123"),
-            Ok(("", "a123"))
+            Ok(("", "a123")),
+            "Should parse token starting with a letter"
+        );
+        assert_eq!(
+            super::token_parser::<VerboseError<&str>>("foo"),
+            Ok(("", "foo")),
+            "Should parse token with just letters"
+        );
+        assert!(
+            super::token_parser::<VerboseError<&str>>("1foo").is_err(),
+            "Should not parse token starting with number"
         );
     }
 }

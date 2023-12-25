@@ -9,4 +9,4 @@ It's not an official parser, neither is it complete. I am learning [nom](https:/
 ### 0.0.1
 
 - Fully qualified name parser
-- Namespace parser parser
+- Namespace parser
