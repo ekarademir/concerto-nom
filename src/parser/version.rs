@@ -2,22 +2,14 @@ use nom::{
     branch::alt,
     bytes::complete::{tag, take_while},
     character::{
-        complete::{alpha1, alphanumeric0, digit1, space1, u128},
+        complete::{alpha1, digit1, u128},
         is_alphanumeric,
     },
     combinator::{eof, not, recognize},
-    error::{context, ContextError, ParseError, VerboseError},
-    sequence::{pair, preceded, separated_pair, tuple},
+    error::{context, ContextError, ParseError},
+    sequence::{pair, preceded, tuple},
     IResult, Parser,
 };
-
-#[derive(Debug, Eq, PartialEq, Clone)]
-pub struct FullyQualifiedName((String, ModelVersion));
-
-#[derive(Debug, Eq, PartialEq, Clone)]
-pub enum BuiltIn {
-    Namespace(FullyQualifiedName),
-}
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct ParsedVersion {
@@ -90,8 +82,8 @@ fn major_minor_patch_version_parser<'a, E: ParseError<&'a str> + ContextError<&'
     )(input)
 }
 
-/// Parses a semantic version, without the pre-release part
-fn version_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+/// Parses a semantic version_parser, without the pre-release part
+fn version_number_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
 ) -> IResult<&'a str, ParsedVersion, E> {
     context(
@@ -148,19 +140,12 @@ fn pre_release_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     context("PreRelease", preceded(tag("-"), combined))(input)
 }
 
-/// A token starts with a letter and includes alphanumerical characters
-pub fn token<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, &'a str, E> {
-    context("Token", recognize(pair(alpha1, alphanumeric0)))(input)
-}
-
-fn version<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+pub fn version_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
 ) -> IResult<&'a str, ModelVersion, E> {
     let (remains, (ver, maybe_pre)) = context(
         "Version",
-        version_parser.and(alt((pre_release_parser, eof))),
+        version_number_parser.and(alt((pre_release_parser, eof))),
     )(input)?;
 
     match maybe_pre.len() {
@@ -172,36 +157,10 @@ fn version<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     }
 }
 
-fn fqn_parser<'a>(input: &'a str) -> IResult<&'a str, FullyQualifiedName, VerboseError<&'a str>> {
-    let mut parser = separated_pair(token, tag("@"), version::<VerboseError<&'a str>>);
-    let (rest, (parsed_token, parsed_version)) = parser(input)?;
-    return Ok((
-        rest,
-        FullyQualifiedName((parsed_token.to_string(), parsed_version)),
-    ));
-}
-
-pub fn namespace<'a>(input: &'a str) -> IResult<&'a str, BuiltIn, VerboseError<&'a str>> {
-    let mut namespace_parser = separated_pair(
-        tag("namespace"),
-        space1::<_, VerboseError<&'a str>>,
-        fqn_parser,
-    );
-
-    let (rest, (_namespace_tag, parsed_fqn)) = namespace_parser(input)?;
-
-    return Ok((rest, BuiltIn::Namespace(parsed_fqn)));
-}
-
 #[cfg(test)]
 mod test {
-    use super::{BuiltIn, FullyQualifiedName, ModelVersion};
+    use super::ModelVersion;
     use nom::error::VerboseError;
-
-    #[test]
-    fn test_token() {
-        assert_eq!(super::token::<VerboseError<&str>>("a123"), Ok(("", "a123")));
-    }
 
     #[test]
     fn test_pre_release() {
@@ -250,107 +209,59 @@ mod test {
     #[test]
     fn test_version() {
         assert_eq!(
-            super::version::<VerboseError<&str>>("12"),
+            super::version_parser::<VerboseError<&str>>("12"),
             Ok(("", ModelVersion::Version((12,).into()))),
-            "Should parse major only version",
+            "Should parse major only version_parser",
         );
         assert_eq!(
-            super::version::<VerboseError<&str>>("12-pre"),
+            super::version_parser::<VerboseError<&str>>("12-pre"),
             Ok((
                 "",
                 ModelVersion::VersionWithRelease((12,).into(), "pre".to_string()),
             )),
-            "Should parse major only version with pre-release tag",
+            "Should parse major only version_parser with pre-release tag",
         );
         assert_eq!(
-            super::version::<VerboseError<&str>>("12.13"),
+            super::version_parser::<VerboseError<&str>>("12.13"),
             Ok(("", ModelVersion::Version((12, 13).into()))),
-            "Should parse major.minor version",
+            "Should parse major.minor version_parser",
         );
         assert_eq!(
-            super::version::<VerboseError<&str>>("12.13-pre"),
+            super::version_parser::<VerboseError<&str>>("12.13-pre"),
             Ok((
                 "",
                 ModelVersion::VersionWithRelease((12, 13).into(), "pre".to_string())
             )),
-            "Should parse major.minor version with pre-release tag",
+            "Should parse major.minor version_parser with pre-release tag",
         );
         assert_eq!(
-            super::version::<VerboseError<&str>>("12.13.14"),
+            super::version_parser::<VerboseError<&str>>("12.13.14"),
             Ok(("", ModelVersion::Version((12, 13, 14).into()))),
-            "Should parse major.minor.patch version",
+            "Should parse major.minor.patch version_parser",
         );
         assert_eq!(
-            super::version::<VerboseError<&str>>("12.13.14-0.1.pr123"),
+            super::version_parser::<VerboseError<&str>>("12.13.14-0.1.pr123"),
             Ok((
                 "",
                 ModelVersion::VersionWithRelease((12, 13, 14).into(), "0.1.pr123".to_string())
             )),
-            "Should parse major.minor.patch version with pre-release tag",
+            "Should parse major.minor.patch version_parser with pre-release tag",
         );
         assert_eq!(
-            super::version::<VerboseError<&str>>("1.0.0-alpha"),
+            super::version_parser::<VerboseError<&str>>("1.0.0-alpha"),
             Ok((
                 "",
                 ModelVersion::VersionWithRelease((1, 0, 0).into(), "alpha".to_string())
             )),
-            "Should parse major.minor.patch version with pre-release tag when tag is all letters",
+            "Should parse major.minor.patch version_parser with pre-release tag when tag is all letters",
         );
         assert_eq!(
-            super::version::<VerboseError<&str>>("1.0.0-alpha.1"),
+            super::version_parser::<VerboseError<&str>>("1.0.0-alpha.1"),
             Ok((
                 "",
                 ModelVersion::VersionWithRelease((1, 0, 0).into(), "alpha.1".to_string())
             )),
-            "Should parse major.minor.patch version with pre-release tag when tag has dots",
-        );
-    }
-
-    #[test]
-    fn test_fqn() {
-        assert_eq!(
-            super::fqn_parser("test@12.13.14"),
-            Ok((
-                "",
-                FullyQualifiedName((
-                    "test".to_string(),
-                    ModelVersion::Version((12, 13, 14).into())
-                ))
-            )),
-        );
-        assert_eq!(
-            super::fqn_parser("test@12.13.14-pre"),
-            Ok((
-                "",
-                FullyQualifiedName((
-                    "test".to_string(),
-                    ModelVersion::VersionWithRelease((12, 13, 14).into(), "pre".to_string())
-                ))
-            ))
-        );
-    }
-
-    #[test]
-    fn test_namespace() {
-        assert_eq!(
-            super::namespace("namespace  test@1.0.2"),
-            Ok((
-                "",
-                BuiltIn::Namespace(FullyQualifiedName((
-                    "test".to_string(),
-                    ModelVersion::Version((1, 0, 2).into())
-                )))
-            ))
-        );
-        assert_eq!(
-            super::namespace("namespace  test@1.0.2-beta"),
-            Ok((
-                "",
-                BuiltIn::Namespace(FullyQualifiedName((
-                    "test".to_string(),
-                    ModelVersion::VersionWithRelease((1, 0, 2).into(), "beta".to_string())
-                )))
-            ))
+            "Should parse major.minor.patch version_parser with pre-release tag when tag has dots",
         );
     }
 }
