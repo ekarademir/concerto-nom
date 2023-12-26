@@ -2,10 +2,10 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::{anychar, space1},
-    combinator::peek,
+    combinator::recognize,
     error::{context, ContextError, ParseError},
-    multi::many_till,
-    sequence::{pair, preceded, separated_pair, terminated, tuple},
+    multi::{many_till, separated_list1},
+    sequence::{pair, preceded, separated_pair, tuple},
     IResult, Parser,
 };
 
@@ -46,12 +46,22 @@ impl From<(String, SemanticVersion, String)> for FullyQualifiedName {
     }
 }
 
+/// Namespaces are tokens and can be dot separated
+fn namespace_token_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+    input: &'a str,
+) -> IResult<&'a str, &'a str, E> {
+    context(
+        "NamespaceToken",
+        recognize(separated_list1(tag("."), token_parser)),
+    )(input)
+}
+
 fn namespace_version_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
 ) -> IResult<&'a str, (String, SemanticVersion), E> {
     context(
         "Namespace",
-        separated_pair(token_parser, tag("@"), version_parser::<E>)
+        separated_pair(namespace_token_parser, tag("@"), version_parser::<E>)
             .map(|(name, ver)| (name.to_string(), ver)),
     )(input)
 }
@@ -142,8 +152,16 @@ pub fn namespace_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 ) -> IResult<&'a str, Namespace, E> {
     context(
         "Namespace",
-        preceded(pair(tag("namespace"), space1), namespace_version_parser)
-            .map(|parsed_nv| parsed_nv.into()),
+        namespace_version_parser.map(|parsed_nv| parsed_nv.into()),
+    )(input)
+}
+
+pub fn namespace_definition_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+    input: &'a str,
+) -> IResult<&'a str, Namespace, E> {
+    context(
+        "NamespaceDefinition",
+        preceded(pair(tag("namespace"), space1), namespace_parser),
     )(input)
 }
 
@@ -230,7 +248,7 @@ mod test {
     #[test]
     fn test_namespace() {
         assert_eq!(
-            super::namespace_parser::<VerboseError<&str>>("namespace  test@1.0.2"),
+            super::namespace_definition_parser::<VerboseError<&str>>("namespace  test@1.0.2"),
             Ok((
                 "",
                 (
@@ -241,7 +259,7 @@ mod test {
             ))
         );
         assert_eq!(
-            super::namespace_parser::<VerboseError<&str>>("namespace  test@1.0.2-beta"),
+            super::namespace_definition_parser::<VerboseError<&str>>("namespace  test@1.0.2-beta"),
             Ok((
                 "",
                 (

@@ -7,7 +7,7 @@ use nom::{
     },
     combinator::{eof, not, recognize},
     error::{context, ContextError, ParseError},
-    sequence::{pair, preceded, terminated, tuple},
+    sequence::{pair, preceded, tuple},
     IResult, Parser,
 };
 
