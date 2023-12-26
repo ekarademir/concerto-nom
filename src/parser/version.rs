@@ -7,7 +7,7 @@ use nom::{
     },
     combinator::{eof, not, recognize},
     error::{context, ContextError, ParseError},
-    sequence::{pair, preceded, tuple},
+    sequence::{pair, preceded, terminated, tuple},
     IResult, Parser,
 };
 
@@ -108,7 +108,7 @@ fn pre_release_allowed_parser<'a, E: ParseError<&'a str>>(
 /// Parses hyphen followed by at least one alpha numeric character, and dots and dashes.
 /// Numeric idenfifiers MUST NOT include leading zeros, single zero is fine.
 /// https://semver.org/#spec-item-9
-fn pre_release_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+pub(crate) fn pre_release_token_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
 ) -> IResult<&'a str, &'a str, E> {
     let leading_no_zero = context(
@@ -139,7 +139,13 @@ fn pre_release_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
         recognize(pair(leading_single_zero, pre_release_allowed_parser)),
     ));
 
-    context("PreRelease", preceded(tag("-"), combined))(input)
+    context("PreReleaseToken", combined)(input)
+}
+
+fn pre_release_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+    input: &'a str,
+) -> IResult<&'a str, &'a str, E> {
+    context("PreRelease", preceded(tag("-"), pre_release_token_parser))(input)
 }
 
 /// A version can be provided as major, major.minor, major.minor.patch and
