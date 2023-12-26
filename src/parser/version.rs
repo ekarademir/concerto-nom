@@ -98,19 +98,19 @@ pub fn version_number_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>
     )(input)
 }
 
+fn pre_release_allowed_parser<'a, E: ParseError<&'a str>>(
+    input: &'a str,
+) -> IResult<&'a str, &'a str, E> {
+    let allowed = ".-";
+    take_while::<_, _, _>(|c: char| is_alphanumeric(c as u8) || allowed.contains(c))(input)
+}
+
 /// Parses hyphen followed by at least one alpha numeric character, and dots and dashes.
 /// Numeric idenfifiers MUST NOT include leading zeros, single zero is fine.
 /// https://semver.org/#spec-item-9
 fn pre_release_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
 ) -> IResult<&'a str, &'a str, E> {
-    fn pre_release_allowed_parser<'a, E: ParseError<&'a str>>(
-        input: &'a str,
-    ) -> IResult<&'a str, &'a str, E> {
-        let allowed = ".-";
-        take_while::<_, _, _>(|c: char| is_alphanumeric(c as u8) || allowed.contains(c))(input)
-    }
-
     let leading_no_zero = context(
         "PreReleaseNoLeadingZero",
         alt((

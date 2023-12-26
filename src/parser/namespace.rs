@@ -1,46 +1,52 @@
 use nom::{
     bytes::complete::tag,
     character::complete::space1,
-    error::{context, ContextError, ParseError, VerboseError},
-    sequence::separated_pair,
+    error::{context, ContextError, ParseError},
+    sequence::{pair, preceded, separated_pair},
     IResult, Parser,
 };
 
 use super::common::token_parser;
 use super::version::{version_parser, SemanticVersion};
-use super::BuiltIn;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub struct NamespaceVersion((String, SemanticVersion));
+pub struct Namespace {
+    name: String,
+    version: SemanticVersion,
+}
+
+impl From<(String, SemanticVersion)> for Namespace {
+    fn from(value: (String, SemanticVersion)) -> Self {
+        Namespace {
+            name: value.0,
+            version: value.1,
+        }
+    }
+}
 
 fn namespace_version_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
-) -> IResult<&'a str, NamespaceVersion, E> {
+) -> IResult<&'a str, (String, SemanticVersion), E> {
     context(
-        "NamespaceVersion",
-        separated_pair(token_parser, tag("@"), version_parser::<E>).map(
-            |(parsed_token, parsed_version)| {
-                NamespaceVersion((parsed_token.to_string(), parsed_version))
-            },
-        ),
+        "Namespace",
+        separated_pair(token_parser, tag("@"), version_parser::<E>)
+            .map(|(name, ver)| (name.to_string(), ver)),
     )(input)
 }
 
-pub fn namespace_parser<'a>(input: &'a str) -> IResult<&'a str, BuiltIn, VerboseError<&'a str>> {
-    let mut parser = separated_pair(
-        tag("namespace"),
-        space1::<_, VerboseError<&'a str>>,
-        namespace_version_parser::<VerboseError<&'a str>>,
-    );
-
-    let (rest, (_namespace_tag, parsed_fqn)) = parser(input)?;
-
-    return Ok((rest, BuiltIn::Namespace(parsed_fqn)));
+pub fn namespace_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+    input: &'a str,
+) -> IResult<&'a str, Namespace, E> {
+    context(
+        "Namespace",
+        preceded(pair(tag("namespace"), space1), namespace_version_parser)
+            .map(|parsed_nv| parsed_nv.into()),
+    )(input)
 }
 
 #[cfg(test)]
 mod test {
-    use super::{BuiltIn, NamespaceVersion, SemanticVersion};
+    use super::SemanticVersion;
     use nom::error::VerboseError;
 
     #[test]
@@ -49,20 +55,20 @@ mod test {
             super::namespace_version_parser::<VerboseError<&str>>("test@12.13.14"),
             Ok((
                 "",
-                NamespaceVersion((
+                (
                     "test".to_string(),
                     SemanticVersion::Version((12, 13, 14).into())
-                ))
+                )
             )),
         );
         assert_eq!(
             super::namespace_version_parser::<VerboseError<&str>>("test@12.13.14-pre"),
             Ok((
                 "",
-                NamespaceVersion((
+                (
                     "test".to_string(),
                     SemanticVersion::VersionWithRelease((12, 13, 14).into(), "pre".to_string())
-                ))
+                )
             ))
         );
     }
@@ -70,23 +76,25 @@ mod test {
     #[test]
     fn test_namespace() {
         assert_eq!(
-            super::namespace_parser("namespace  test@1.0.2"),
+            super::namespace_parser::<VerboseError<&str>>("namespace  test@1.0.2"),
             Ok((
                 "",
-                BuiltIn::Namespace(NamespaceVersion((
+                (
                     "test".to_string(),
                     SemanticVersion::Version((1, 0, 2).into())
-                )))
+                )
+                    .into()
             ))
         );
         assert_eq!(
-            super::namespace_parser("namespace  test@1.0.2-beta"),
+            super::namespace_parser::<VerboseError<&str>>("namespace  test@1.0.2-beta"),
             Ok((
                 "",
-                BuiltIn::Namespace(NamespaceVersion((
+                (
                     "test".to_string(),
                     SemanticVersion::VersionWithRelease((1, 0, 2).into(), "beta".to_string())
-                )))
+                )
+                    .into()
             ))
         );
     }
