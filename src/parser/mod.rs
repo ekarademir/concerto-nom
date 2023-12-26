@@ -1,5 +1,6 @@
 pub mod common;
 pub mod namespace;
+pub mod property;
 pub mod version;
 
 pub use namespace::namespace_definition_parser;

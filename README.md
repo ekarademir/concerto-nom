@@ -10,3 +10,7 @@ It's not an official parser, neither is it complete. I am learning [nom](https:/
 
 - Fully qualified name parser
 - Namespace parser
+
+### 0.0.2 (ongoing)
+
+- Property parser
