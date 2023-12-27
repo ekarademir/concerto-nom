@@ -13,6 +13,7 @@ use super::common::token_parser;
 use super::version::{
     pre_release_token_parser, version_number_parser, version_parser, SemanticVersion,
 };
+use crate::parser::common::keywords;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Namespace {
@@ -161,7 +162,7 @@ pub fn namespace_definition_parser<'a, E: ParseError<&'a str> + ContextError<&'a
 ) -> IResult<&'a str, Namespace, E> {
     context(
         "NamespaceDefinition",
-        preceded(pair(tag("namespace"), space1), namespace_parser),
+        preceded(pair(keywords::namespace, space1), namespace_parser),
     )(input)
 }
 

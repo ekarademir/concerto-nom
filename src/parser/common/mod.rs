@@ -6,6 +6,9 @@ use nom::{
     IResult,
 };
 
+pub mod concerto;
+pub mod keywords;
+
 /// A `token` starts with a letter and includes alphanumerical characters
 pub fn token_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,

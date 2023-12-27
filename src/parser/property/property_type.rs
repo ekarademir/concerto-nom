@@ -1,9 +1,10 @@
 use nom::{
     branch::alt,
-    bytes::complete::tag,
     error::{context, ContextError, ParseError},
     IResult, Parser,
 };
+
+use crate::parser::common::concerto;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub(super) enum PrimitiveType {
@@ -13,6 +14,38 @@ pub(super) enum PrimitiveType {
     DoublePropertyType,
     IntegerPropertyType,
     DateTimePropertyType,
+    None,
+}
+
+impl<'a> From<&'a str> for PrimitiveType {
+    fn from(value: &'a str) -> Self {
+        match value {
+            "String" => Self::StringPropertyType,
+            "Boolean" => Self::BooleanPropertyType,
+            "Long" => Self::LongPropertyType,
+            "Double" => Self::DoublePropertyType,
+            "Integer" => Self::IntegerPropertyType,
+            "DateTime" => Self::DateTimePropertyType,
+            _ => Self::None,
+        }
+    }
+}
+
+fn primitive_type_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+    input: &'a str,
+) -> IResult<&'a str, PrimitiveType, E> {
+    Parser::into(context(
+        "PrimitiveType",
+        alt((
+            concerto::string,
+            concerto::boolean,
+            concerto::long,
+            concerto::double,
+            concerto::integer,
+            concerto::datetime,
+        )),
+    ))
+    .parse(input)
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -20,42 +53,16 @@ pub(super) enum PropertyType {
     Primitive(PrimitiveType),
 }
 
-fn primitive_type_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, PrimitiveType, E> {
-    let string_type_parser =
-        tag::<&'a str, &'a str, E>("String").map(|_| PrimitiveType::StringPropertyType);
-    let boolean_type_parser =
-        tag::<&'a str, &'a str, E>("Boolean").map(|_| PrimitiveType::BooleanPropertyType);
-    let long_type_parser =
-        tag::<&'a str, &'a str, E>("Long").map(|_| PrimitiveType::LongPropertyType);
-    let double_type_parser =
-        tag::<&'a str, &'a str, E>("Double").map(|_| PrimitiveType::DoublePropertyType);
-    let integer_type_parser =
-        tag::<&'a str, &'a str, E>("Integer").map(|_| PrimitiveType::IntegerPropertyType);
-    let datetime_type_parser =
-        tag::<&'a str, &'a str, E>("DateTime").map(|_| PrimitiveType::DateTimePropertyType);
-
-    context(
-        "PrimitiveType",
-        alt((
-            string_type_parser,
-            boolean_type_parser,
-            long_type_parser,
-            double_type_parser,
-            integer_type_parser,
-            datetime_type_parser,
-        )),
-    )(input)
+impl From<PrimitiveType> for PropertyType {
+    fn from(value: PrimitiveType) -> Self {
+        Self::Primitive(value)
+    }
 }
 
 pub(super) fn property_type_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
 ) -> IResult<&'a str, PropertyType, E> {
-    context(
-        "PropertyType",
-        alt((primitive_type_parser.map(|primitive| PropertyType::Primitive(primitive)),)),
-    )(input)
+    Parser::into(context("PropertyType", alt((primitive_type_parser,)))).parse(input)
 }
 
 #[cfg(test)]

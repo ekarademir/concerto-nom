@@ -7,6 +7,8 @@ use nom::{
     IResult, Parser,
 };
 
+use crate::parser::common::keywords;
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum DefaultValue {
     StringDefaultValue(String),
@@ -49,7 +51,7 @@ pub(super) fn default_metaproperty_parser<'a, E: ParseError<&'a str> + ContextEr
     context(
         "DefaultMetaProperty",
         preceded(
-            tuple((tag("default"), space0, tag("="), space0)),
+            tuple((keywords::default, space0, tag("="), space0)),
             default_value_parser,
         ),
     )(input)
