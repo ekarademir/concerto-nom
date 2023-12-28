@@ -1,7 +1,6 @@
 pub mod parser;
 
-use nom::error::{context, VerboseError};
-use nom::Parser;
+use nom::error::VerboseError;
 
 fn main() {
     let cto = "namespace com.example.foo@1.3.5-pre";

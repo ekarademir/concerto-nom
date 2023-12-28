@@ -1,13 +1,13 @@
 use nom::{
     branch::alt,
-    bytes::complete::{tag, take_while},
+    bytes::complete::tag,
     character::complete::space0,
     error::{context, ContextError, ParseError},
-    sequence::{delimited, preceded, tuple},
+    sequence::{preceded, tuple},
     IResult, Parser,
 };
 
-use crate::parser::common::keywords;
+use crate::parser::common::{keywords, string_parser as string_default_value};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum DefaultValue {
@@ -19,30 +19,16 @@ pub enum DefaultValue {
     DateTimeDefaultValue(String),
 }
 
-fn string_value_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, &'a str, E> {
-    // Doesn't handle unicode escapes yet.
-    let invalid = "\n\r\"\'";
-    // TODO: Add punctuation
-    let valid =
-        take_while(|c: char| !invalid.contains(c) || c.is_alphanumeric() || c.is_whitespace());
-    context("StringValue", valid)(input)
+impl From<String> for DefaultValue {
+    fn from(value: String) -> Self {
+        Self::StringDefaultValue(value)
+    }
 }
 
-pub(super) fn default_value_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+fn default_value_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
 ) -> IResult<&'a str, DefaultValue, E> {
-    let string_default_value = context(
-        "StringDefaultValue",
-        alt((
-            delimited(tag("\""), string_value_parser::<E>, tag("\"")),
-            delimited(tag("'"), string_value_parser::<E>, tag("'")),
-        )),
-    )
-    .map(|v| DefaultValue::StringDefaultValue(v.to_string()));
-
-    context("DefaultValue", alt((string_default_value,)))(input)
+    Parser::into(context("DefaultValue", alt((string_default_value,)))).parse(input)
 }
 
 pub(super) fn default_metaproperty_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
@@ -62,22 +48,23 @@ mod test {
     use nom::error::VerboseError;
 
     #[test]
-    fn test_default_metaproperty() {
+    fn test_default_metaproperty_string() {
         assert_eq!(
             super::default_metaproperty_parser::<VerboseError<&str>>("default=\"Hello World\""),
             Ok((
                 "",
                 super::DefaultValue::StringDefaultValue("Hello World".to_string())
             )),
+            "Should parse default value of a String, delimited by double quotes"
         );
-    }
 
-    #[test]
-    fn test_string_value() {
         assert_eq!(
-            super::string_value_parser::<VerboseError<&str>>("lorem ipsum\t123"),
-            Ok(("", "lorem ipsum\t123")),
-            "Should parse letters, numbers, and spaces"
+            super::default_metaproperty_parser::<VerboseError<&str>>("default=\'Hello World\'"),
+            Ok((
+                "",
+                super::DefaultValue::StringDefaultValue("Hello World".to_string())
+            )),
+            "Should parse default value of a String, delimited by single quotes"
         );
     }
 }

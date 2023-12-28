@@ -6,8 +6,11 @@ use nom::{
     IResult,
 };
 
-pub mod concerto;
-pub mod keywords;
+mod string;
+
+pub(crate) mod concerto;
+pub(crate) mod keywords;
+pub(crate) use string::string_parser;
 
 /// A `token` starts with a letter and includes alphanumerical characters
 pub fn token_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
