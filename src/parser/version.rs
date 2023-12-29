@@ -58,21 +58,21 @@ pub enum SemanticVersion {
     VersionWithRelease(VersionNumber, String),
 }
 
-fn major_only_version_parser<'a>(input: &'a str) -> CResult<&'a str, VersionNumber> {
+fn major_only_version<'a>(input: &'a str) -> CResult<&'a str, VersionNumber> {
     context(
         "VersionMajorOnly",
         digit1.and_then(u128).map(|m| (m,).into()),
     )(input)
 }
 
-fn major_minor_version_parser<'a>(input: &'a str) -> CResult<&'a str, VersionNumber> {
+fn major_minor_version<'a>(input: &'a str) -> CResult<&'a str, VersionNumber> {
     context(
         "VersionMajorMinor",
         tuple((u128, tag("."), u128)).map(|(maj, _, min)| (maj, min).into()),
     )(input)
 }
 
-fn major_minor_patch_version_parser<'a>(input: &'a str) -> CResult<&'a str, VersionNumber> {
+fn major_minor_patch_version<'a>(input: &'a str) -> CResult<&'a str, VersionNumber> {
     context(
         "VersionMajorMinorPatch",
         tuple((u128, tag("."), u128, tag("."), u128))
@@ -81,18 +81,18 @@ fn major_minor_patch_version_parser<'a>(input: &'a str) -> CResult<&'a str, Vers
 }
 
 /// Parses a semantic version, without the pre-release part
-pub fn version_number_parser<'a>(input: &'a str) -> CResult<&'a str, VersionNumber> {
+pub fn version_number<'a>(input: &'a str) -> CResult<&'a str, VersionNumber> {
     context(
         "Version",
         alt((
-            major_minor_patch_version_parser,
-            major_minor_version_parser,
-            major_only_version_parser,
+            major_minor_patch_version,
+            major_minor_version,
+            major_only_version,
         )),
     )(input)
 }
 
-fn pre_release_allowed_parser<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
+fn pre_release_allowed<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
     let allowed = ".-";
     take_while::<_, _, _>(|c: char| is_alphanumeric(c as u8) || allowed.contains(c))(input)
 }
@@ -100,7 +100,7 @@ fn pre_release_allowed_parser<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
 /// Parses hyphen followed by at least one alpha numeric character, and dots and dashes.
 /// Numeric idenfifiers MUST NOT include leading zeros, single zero is fine.
 /// https://semver.org/#spec-item-9
-pub(crate) fn pre_release_token_parser<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
+pub(crate) fn pre_release_token<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
     let leading_no_zero = context(
         "PreReleaseNoLeadingZero",
         alt((
@@ -122,24 +122,22 @@ pub(crate) fn pre_release_token_parser<'a>(input: &'a str) -> CResult<&'a str, &
 
     // Either start with one zero and follow by allowed characters, or start with non zero.
     let combined = alt((
-        recognize(pair(leading_no_zero, pre_release_allowed_parser)),
-        recognize(pair(leading_single_zero, pre_release_allowed_parser)),
+        recognize(pair(leading_no_zero, pre_release_allowed)),
+        recognize(pair(leading_single_zero, pre_release_allowed)),
     ));
 
     context("PreReleaseToken", combined)(input)
 }
 
-fn pre_release_parser<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
-    context("PreRelease", preceded(tag("-"), pre_release_token_parser))(input)
+fn pre_release<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
+    context("PreRelease", preceded(tag("-"), pre_release_token))(input)
 }
 
 /// A version can be provided as major, major.minor, major.minor.patch and
 /// each with a pre-release tag attached with an hyphen
-pub fn version_parser<'a>(input: &'a str) -> CResult<&'a str, SemanticVersion> {
-    let (remains, (ver, maybe_pre)) = context(
-        "Version",
-        version_number_parser.and(alt((pre_release_parser, eof))),
-    )(input)?;
+pub fn version_identifier<'a>(input: &'a str) -> CResult<&'a str, SemanticVersion> {
+    let (remains, (ver, maybe_pre)) =
+        context("Version", version_number.and(alt((pre_release, eof))))(input)?;
 
     match maybe_pre.len() {
         0 => Ok((remains, SemanticVersion::Version(ver))),
@@ -157,42 +155,42 @@ mod test {
     #[test]
     fn test_pre_release() {
         assert!(
-            super::pre_release_parser("pr123").is_err(),
+            super::pre_release("pr123").is_err(),
             "Should not parse if tag doesn't start with hyphen"
         );
         assert_eq!(
-            super::pre_release_parser("-pr123"),
+            super::pre_release("-pr123"),
             Ok(("", "pr123")),
             "Should parse prerelease tag with letters and numbers"
         );
         assert_eq!(
-            super::pre_release_parser("-0.1.pr123"),
+            super::pre_release("-0.1.pr123"),
             Ok(("", "0.1.pr123")),
             "Should parse prerelease tag with letters and numbers and dots"
         );
         assert_eq!(
-            super::pre_release_parser("-alpha"),
+            super::pre_release("-alpha"),
             Ok(("", "alpha")),
             "Should parse prerelease tag with letters only"
         );
         assert_eq!(
-            super::pre_release_parser("-alpha.1"),
+            super::pre_release("-alpha.1"),
             Ok(("", "alpha.1")),
             "Should parse prerelease tag with letters and numbers separated by dots"
         );
-        assert!(super::pre_release_parser("-001").is_err());
+        assert!(super::pre_release("-001").is_err());
         assert_eq!(
-            super::pre_release_parser("-0.3.7"),
+            super::pre_release("-0.3.7"),
             Ok(("", "0.3.7")),
             "Should parse prerelease tag with numbers and dots"
         );
         assert_eq!(
-            super::pre_release_parser("-x.7.z.92"),
+            super::pre_release("-x.7.z.92"),
             Ok(("", "x.7.z.92")),
             "Should the example prerelease tag from semver.org"
         );
         assert_eq!(
-            super::pre_release_parser("-x-y-z.--"),
+            super::pre_release("-x-y-z.--"),
             Ok(("", "x-y-z.--")),
             "Should the example prerelease tag from semver.org"
         );
@@ -201,59 +199,59 @@ mod test {
     #[test]
     fn test_version() {
         assert_eq!(
-            super::version_parser("12"),
+            super::version_identifier("12"),
             Ok(("", SemanticVersion::Version((12,).into()))),
-            "Should parse major only version_parser",
+            "Should parse major only version_identifier",
         );
         assert_eq!(
-            super::version_parser("12-pre"),
+            super::version_identifier("12-pre"),
             Ok((
                 "",
                 SemanticVersion::VersionWithRelease((12,).into(), "pre".to_string()),
             )),
-            "Should parse major only version_parser with pre-release tag",
+            "Should parse major only version_identifier with pre-release tag",
         );
         assert_eq!(
-            super::version_parser("12.13"),
+            super::version_identifier("12.13"),
             Ok(("", SemanticVersion::Version((12, 13).into()))),
-            "Should parse major.minor version_parser",
+            "Should parse major.minor version_identifier",
         );
         assert_eq!(
-            super::version_parser("12.13-pre"),
+            super::version_identifier("12.13-pre"),
             Ok((
                 "",
                 SemanticVersion::VersionWithRelease((12, 13).into(), "pre".to_string())
             )),
-            "Should parse major.minor version_parser with pre-release tag",
+            "Should parse major.minor version_identifier with pre-release tag",
         );
         assert_eq!(
-            super::version_parser("12.13.14"),
+            super::version_identifier("12.13.14"),
             Ok(("", SemanticVersion::Version((12, 13, 14).into()))),
-            "Should parse major.minor.patch version_parser",
+            "Should parse major.minor.patch version_identifier",
         );
         assert_eq!(
-            super::version_parser("12.13.14-0.1.pr123"),
+            super::version_identifier("12.13.14-0.1.pr123"),
             Ok((
                 "",
                 SemanticVersion::VersionWithRelease((12, 13, 14).into(), "0.1.pr123".to_string())
             )),
-            "Should parse major.minor.patch version_parser with pre-release tag",
+            "Should parse major.minor.patch version_identifier with pre-release tag",
         );
         assert_eq!(
-            super::version_parser("1.0.0-alpha"),
+            super::version_identifier("1.0.0-alpha"),
             Ok((
                 "",
                 SemanticVersion::VersionWithRelease((1, 0, 0).into(), "alpha".to_string())
             )),
-            "Should parse major.minor.patch version_parser with pre-release tag when tag is all letters",
+            "Should parse major.minor.patch version_identifier with pre-release tag when tag is all letters",
         );
         assert_eq!(
-            super::version_parser("1.0.0-alpha.1"),
+            super::version_identifier("1.0.0-alpha.1"),
             Ok((
                 "",
                 SemanticVersion::VersionWithRelease((1, 0, 0).into(), "alpha.1".to_string())
             )),
-            "Should parse major.minor.patch version_parser with pre-release tag when tag has dots",
+            "Should parse major.minor.patch version_identifier with pre-release tag when tag has dots",
         );
     }
 }

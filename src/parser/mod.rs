@@ -4,7 +4,7 @@ pub mod namespace;
 pub mod property;
 pub mod version;
 
-pub use namespace::namespace_definition_parser;
+pub use namespace::namespace_identifier;
 
 use crate::parser::error::CError;
 use nom::IResult;

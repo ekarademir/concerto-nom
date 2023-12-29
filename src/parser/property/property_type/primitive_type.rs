@@ -27,7 +27,7 @@ impl<'a> From<&'a str> for PrimitiveType {
     }
 }
 
-pub(crate) fn primitive_type_parser<'a>(input: &'a str) -> CResult<&'a str, PrimitiveType> {
+pub(crate) fn primitive_type<'a>(input: &'a str) -> CResult<&'a str, PrimitiveType> {
     Parser::into(context(
         "PrimitiveType",
         alt((

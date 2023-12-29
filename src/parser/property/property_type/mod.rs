@@ -4,7 +4,7 @@ use nom::{branch::alt, error::context, Parser};
 
 use crate::parser::CResult;
 
-pub(crate) use primitive_type::{primitive_type_parser, PrimitiveType};
+pub(crate) use primitive_type::{primitive_type, PrimitiveType};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub(super) enum PropertyType {
@@ -17,8 +17,8 @@ impl From<PrimitiveType> for PropertyType {
     }
 }
 
-pub(super) fn property_type_parser<'a>(input: &'a str) -> CResult<&'a str, PropertyType> {
-    Parser::into(context("PropertyType", alt((primitive_type_parser,)))).parse(input)
+pub(super) fn property_type<'a>(input: &'a str) -> CResult<&'a str, PropertyType> {
+    Parser::into(context("PropertyType", alt((primitive_type,)))).parse(input)
 }
 
 #[cfg(test)]

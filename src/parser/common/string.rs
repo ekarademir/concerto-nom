@@ -28,7 +28,7 @@ fn delimited_hex<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
 
 /// Converts hex digits to integers, different from the example, it emits a `ParseError`
 /// when en external error is encountered`, instead of propagating `FromExternalError`.
-fn u32_parser<'a>(input: &'a str) -> CResult<&'a str, u32> {
+fn u32_value<'a>(input: &'a str) -> CResult<&'a str, u32> {
     let maybe_u32 = map_res(delimited_hex, move |h| u32::from_str_radix(h, 16))(input);
 
     let res: CResult<&'a str, u32> = match maybe_u32 {
@@ -42,24 +42,24 @@ fn u32_parser<'a>(input: &'a str) -> CResult<&'a str, u32> {
 }
 
 /// Parses characters that start wuth `u` and followed by 3 to 6 integers
-fn unicode_char_parser<'a>(input: &'a str) -> CResult<&'a str, char> {
+fn unicode_char<'a>(input: &'a str) -> CResult<&'a str, char> {
     // Convert them back to character, validating unicode character
     let u32_validate = context(
         "U32Validate",
-        map_opt(u32_parser, |val| std::char::from_u32(val)),
+        map_opt(u32_value, |val| std::char::from_u32(val)),
     );
 
     context("UnicodeCharacter", u32_validate)(input)
 }
 
 /// Parses escaped characters
-fn escaped_char_parser<'a>(input: &'a str) -> CResult<&'a str, char> {
+fn escaped_char<'a>(input: &'a str) -> CResult<&'a str, char> {
     context(
         "EscapedCharacter",
         preceded(
             char('\\'),
             alt((
-                unicode_char_parser,
+                unicode_char,
                 value('\n', char('n')),
                 value('\r', char('r')),
                 value('\t', char('t')),
@@ -75,12 +75,12 @@ fn escaped_char_parser<'a>(input: &'a str) -> CResult<&'a str, char> {
 }
 
 /// Parse escaped whitespace, trusting the wisdom of the example
-fn escaped_whitespace_parser<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
+fn escaped_whitespace<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
     context("EscapedWhitespace", preceded(char('\\'), multispace1))(input)
 }
 
 /// Parse non-escaped characters
-fn literal_parser<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
+fn literal<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
     let not_quote_slash = context("NotQuoteSlash", is_not("\'\"\\"));
     context("Literal", verify(not_quote_slash, |s: &str| !s.is_empty()))(input)
 }
@@ -96,13 +96,13 @@ enum StringFragment<'a> {
 }
 
 /// Parse parts of string
-fn fragment_parser<'a>(input: &'a str) -> CResult<&'a str, StringFragment<'a>> {
+fn fragment<'a>(input: &'a str) -> CResult<&'a str, StringFragment<'a>> {
     context(
         "Fragment",
         alt((
-            map(literal_parser, StringFragment::Literal),
-            map(escaped_char_parser, StringFragment::Escaped),
-            value(StringFragment::EscapedWS, escaped_whitespace_parser),
+            map(literal, StringFragment::Literal),
+            map(escaped_char, StringFragment::Escaped),
+            value(StringFragment::EscapedWS, escaped_whitespace),
         )),
     )(input)
 }
@@ -110,7 +110,7 @@ fn fragment_parser<'a>(input: &'a str) -> CResult<&'a str, StringFragment<'a>> {
 fn build_string<'a>(input: &'a str) -> CResult<&'a str, String> {
     context(
         "BuildString",
-        fold_many0(fragment_parser, String::new, |mut acc, fragment| {
+        fold_many0(fragment, String::new, |mut acc, fragment| {
             match fragment {
                 StringFragment::Escaped(c) => acc.push(c),
                 StringFragment::EscapedWS => {}
@@ -121,7 +121,7 @@ fn build_string<'a>(input: &'a str) -> CResult<&'a str, String> {
     )(input)
 }
 
-pub(crate) fn string_parser<'a>(input: &'a str) -> CResult<&'a str, String> {
+pub(crate) fn string_value<'a>(input: &'a str) -> CResult<&'a str, String> {
     let single_quoted = context(
         "SingleQuoted",
         delimited(char('\''), *(&build_string), char('\'')),
@@ -140,13 +140,13 @@ mod test {
     #[test]
     fn test_simple_string() {
         assert_eq!(
-            super::string_parser("\"a simple string\""),
+            super::string_value("\"a simple string\""),
             Ok(("", String::from("a simple string"))),
             "Should parse a string with double quotes"
         );
 
         assert_eq!(
-            super::string_parser("'a simple string'"),
+            super::string_value("'a simple string'"),
             Ok(("", String::from("a simple string"))),
             "Should parse a string with single quotes"
         );
@@ -155,13 +155,13 @@ mod test {
     #[test]
     fn test_string_with_escaped() {
         assert_eq!(
-            super::string_parser("\"an escaped \\\" and \\t and \\\' string\""),
+            super::string_value("\"an escaped \\\" and \\t and \\\' string\""),
             Ok(("", String::from("an escaped \" and \t and ' string"))),
             "Should parse an escaped string with single quotes"
         );
 
         assert_eq!(
-            super::string_parser("'an escaped \\\" and \\t and \\\' string'"),
+            super::string_value("'an escaped \\\" and \\t and \\\' string'"),
             Ok(("", String::from("an escaped \" and \t and ' string"))),
             "Should parse an escaped string with single quotes"
         );
@@ -170,7 +170,7 @@ mod test {
     #[test]
     fn test_nom_example() {
         assert_eq!(
-            super::string_parser(
+            super::string_value(
                 "\"tab:\\tafter tab, newline:\\nnew line, quote: \\\", emoji: \\u{1F602}, newline:\\nescaped whitespace: \\    abc\""
             ),
             Ok(("", String::from("tab:\tafter tab, newline:\nnew line, quote: \", emoji: 😂, newline:\nescaped whitespace: abc"))),
@@ -178,7 +178,7 @@ mod test {
         );
 
         assert_eq!(
-            super::string_parser("'tab:\\tafter tab, newline:\\nnew line, quote: \\\", emoji: \\u{1F602}, newline:\\nescaped whitespace: \\    abc'"),
+            super::string_value("'tab:\\tafter tab, newline:\\nnew line, quote: \\\", emoji: \\u{1F602}, newline:\\nescaped whitespace: \\    abc'"),
             Ok(("", String::from("tab:\tafter tab, newline:\nnew line, quote: \", emoji: 😂, newline:\nescaped whitespace: abc"))),
             "Should parse nom example with single quotes"
         );

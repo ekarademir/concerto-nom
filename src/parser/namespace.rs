@@ -2,17 +2,15 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::{anychar, space1},
-    combinator::recognize,
+    combinator::{into, recognize},
     error::context,
     multi::{many_till, separated_list1},
     sequence::{pair, preceded, separated_pair, tuple},
     Parser,
 };
 
-use super::common::token_parser;
-use super::version::{
-    pre_release_token_parser, version_number_parser, version_parser, SemanticVersion,
-};
+use super::common::token;
+use super::version::{pre_release_token, version_identifier, version_number, SemanticVersion};
 use crate::parser::{common::keywords, CResult};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -48,54 +46,49 @@ impl From<(String, SemanticVersion, String)> for FullyQualifiedName {
 }
 
 /// Namespaces are tokens and can be dot separated
-fn namespace_token_parser<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
+fn namespace_name<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
     context(
         "NamespaceToken",
-        recognize(separated_list1(tag("."), token_parser)),
+        recognize(separated_list1(tag("."), token)),
     )(input)
 }
 
-fn namespace_version_parser<'a>(input: &'a str) -> CResult<&'a str, (String, SemanticVersion)> {
+fn namespace_version<'a>(input: &'a str) -> CResult<&'a str, (String, SemanticVersion)> {
     context(
         "Namespace",
-        separated_pair(namespace_token_parser, tag("@"), version_parser)
+        separated_pair(namespace_name, tag("@"), version_identifier)
             .map(|(name, ver)| (name.to_string(), ver)),
     )(input)
 }
 
-fn fqn_no_prerelease_parser<'a>(input: &'a str) -> CResult<&'a str, FullyQualifiedName> {
+fn fqn_no_prerelease<'a>(input: &'a str) -> CResult<&'a str, FullyQualifiedName> {
     context(
         "FQNNoPrerelease",
-        tuple((
-            token_parser,
-            tag("@"),
-            version_number_parser,
-            tag("."),
-            token_parser,
-        ))
-        .map(|(namespace_name, _, version_number, _, type_name)| {
-            (
-                namespace_name.to_string(),
-                SemanticVersion::Version(version_number),
-                type_name.to_string(),
-            )
-                .into()
-        }),
+        tuple((token, tag("@"), version_number, tag("."), token)).map(
+            |(namespace_name, _, version_number, _, type_name)| {
+                (
+                    namespace_name.to_string(),
+                    SemanticVersion::Version(version_number),
+                    type_name.to_string(),
+                )
+                    .into()
+            },
+        ),
     )(input)
 }
 
 /// Try to pick up the last dot delimited bit of the pre-release
 /// since dots are valid prerelease characters.
-fn prerelease_dot_token_parser<'a>(input: &'a str) -> CResult<&'a str, (&'a str, &'a str)> {
+fn prerelease_dot_token<'a>(input: &'a str) -> CResult<&'a str, (&'a str, &'a str)> {
     // First try to pick up the last bit separated by a dot
     let (_, (_, (_, token))) = context(
         "PrereleaseDotToken::Token",
-        many_till(anychar, pair(tag("."), token_parser)),
+        many_till(anychar, pair(tag("."), token)),
     )(input)?;
 
     // Then parse the prerelease, which will also consume the dot
     let (rest, pre_with_token) =
-        context("PrereleaseDotToken::PreRelease", pre_release_token_parser)(input)?;
+        context("PrereleaseDotToken::PreRelease", pre_release_token)(input)?;
 
     // Finally calculate the end of the pre (without the lat doted bit)
     let end_of_pre = pre_with_token.len() - token.len() - 1; // -1 for "dot"
@@ -103,15 +96,15 @@ fn prerelease_dot_token_parser<'a>(input: &'a str) -> CResult<&'a str, (&'a str,
     Ok((rest, (&(pre_with_token[..end_of_pre]), token)))
 }
 
-fn fqn_with_prerelease_parser<'a>(input: &'a str) -> CResult<&'a str, FullyQualifiedName> {
+fn fqn_with_prerelease<'a>(input: &'a str) -> CResult<&'a str, FullyQualifiedName> {
     context(
         "FQNWithPrerelease",
         tuple((
-            token_parser,
+            token,
             tag("@"),
-            version_number_parser,
+            version_number,
             tag("-"),
-            prerelease_dot_token_parser,
+            prerelease_dot_token,
         ))
         .map(
             |(namespace_name, _, version_number, _, (pre_release, type_name))| {
@@ -126,24 +119,17 @@ fn fqn_with_prerelease_parser<'a>(input: &'a str) -> CResult<&'a str, FullyQuali
     )(input)
 }
 
-pub fn fqn_parser<'a>(input: &'a str) -> CResult<&'a str, FullyQualifiedName> {
+pub fn fqn<'a>(input: &'a str) -> CResult<&'a str, FullyQualifiedName> {
     context(
         "FullyQualifiedName",
-        alt((fqn_with_prerelease_parser, fqn_no_prerelease_parser)),
+        alt((fqn_with_prerelease, fqn_no_prerelease)),
     )(input)
 }
 
-pub fn namespace_parser<'a>(input: &'a str) -> CResult<&'a str, Namespace> {
-    context(
-        "Namespace",
-        namespace_version_parser.map(|parsed_nv| parsed_nv.into()),
-    )(input)
-}
-
-pub fn namespace_definition_parser<'a>(input: &'a str) -> CResult<&'a str, Namespace> {
+pub fn namespace_identifier<'a>(input: &'a str) -> CResult<&'a str, Namespace> {
     context(
         "NamespaceDefinition",
-        preceded(pair(keywords::namespace, space1), namespace_parser),
+        preceded(pair(keywords::namespace, space1), into(namespace_version)),
     )(input)
 }
 
@@ -154,7 +140,7 @@ mod test {
     #[test]
     fn test_prerelease_and_token() {
         assert_eq!(
-            super::prerelease_dot_token_parser("pre.bar123"),
+            super::prerelease_dot_token("pre.bar123"),
             Ok(("", ("pre", "bar123")))
         )
     }
@@ -162,7 +148,7 @@ mod test {
     #[test]
     fn test_fqn() {
         assert_eq!(
-            super::fqn_parser("test@12.13.14.Foo"),
+            super::fqn("test@12.13.14.Foo"),
             Ok((
                 "",
                 (
@@ -175,7 +161,7 @@ mod test {
             "Should parse fully qualified name"
         );
         assert_eq!(
-            super::fqn_parser("test@12.13.14-pre.bar123"),
+            super::fqn("test@12.13.14-pre.bar123"),
             Ok((
                 "",
                 (
@@ -188,7 +174,7 @@ mod test {
             "Should parse fully qualified name with pre-release"
         );
         assert_eq!(
-            super::fqn_parser("test@12.13.14-pre.0.1.bar123"),
+            super::fqn("test@12.13.14-pre.0.1.bar123"),
             Ok((
                 "",
                 (
@@ -205,7 +191,7 @@ mod test {
     #[test]
     fn test_namespace_version() {
         assert_eq!(
-            super::namespace_version_parser("test@12.13.14"),
+            super::namespace_version("test@12.13.14"),
             Ok((
                 "",
                 (
@@ -215,7 +201,7 @@ mod test {
             )),
         );
         assert_eq!(
-            super::namespace_version_parser("test@12.13.14-pre"),
+            super::namespace_version("test@12.13.14-pre"),
             Ok((
                 "",
                 (
@@ -229,7 +215,7 @@ mod test {
     #[test]
     fn test_namespace() {
         assert_eq!(
-            super::namespace_definition_parser("namespace  test@1.0.2"),
+            super::namespace_identifier("namespace  test@1.0.2"),
             Ok((
                 "",
                 (
@@ -240,7 +226,7 @@ mod test {
             ))
         );
         assert_eq!(
-            super::namespace_definition_parser("namespace  test@1.0.2-beta"),
+            super::namespace_identifier("namespace  test@1.0.2-beta"),
             Ok((
                 "",
                 (

@@ -11,10 +11,10 @@ use nom::{
     Parser,
 };
 
-use super::common::token_parser;
+use super::common::token;
 use super::CResult;
 use default_value::DefaultValue;
-use property_type::{property_type_parser, PropertyType};
+use property_type::{property_type, PropertyType};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum MetaProperty {
@@ -28,42 +28,40 @@ pub struct Property {
     meta_properties: Vec<MetaProperty>,
 }
 
-fn meta_property_parser<'a>(input: &'a str) -> CResult<&'a str, MetaProperty> {
+fn meta_property<'a>(input: &'a str) -> CResult<&'a str, MetaProperty> {
     context(
         "MetaProperty",
         alt((default_value::default_metaproperty_parser.map(|d| MetaProperty::Default(d)),)),
     )(input)
 }
 
-fn property_nometa_parser<'a>(input: &'a str) -> CResult<&'a str, (PropertyType, String)> {
+fn property_nometa<'a>(input: &'a str) -> CResult<&'a str, (PropertyType, String)> {
     context(
         "PropertyNoMeta",
-        separated_pair(property_type_parser, space1, token_parser)
+        separated_pair(property_type, space1, token)
             .map(|(property_type, property_name)| (property_type, property_name.to_string())),
     )(input)
 }
 
-fn property_meta_parser<'a>(input: &'a str) -> CResult<&'a str, Vec<MetaProperty>> {
+fn property_meta<'a>(input: &'a str) -> CResult<&'a str, Vec<MetaProperty>> {
     context(
         "PropertyhMeta",
-        fold_many0(
-            meta_property_parser,
-            Vec::new,
-            |mut acc: Vec<_>, property| {
-                acc.push(property);
-                acc
-            },
-        ),
+        fold_many0(meta_property, Vec::new, |mut acc: Vec<_>, property| {
+            acc.push(property);
+            acc
+        }),
     )(input)
 }
 
-pub fn property_parser<'a>(input: &'a str) -> CResult<&'a str, Property> {
+// pub fn string_primitive_property
+
+pub fn property<'a>(input: &'a str) -> CResult<&'a str, Property> {
     let no_meta_parser = context("NoMeta", space0.map(|_| Vec::new()));
     let body_parser = context(
         "PropertyBody",
         alt((
-            separated_pair(property_nometa_parser, space1, property_meta_parser),
-            separated_pair(property_nometa_parser, space0, no_meta_parser),
+            separated_pair(property_nometa, space1, property_meta),
+            separated_pair(property_nometa, space0, no_meta_parser),
         ))
         .map(|((type_name, name), meta_properties)| Property {
             name,
@@ -80,7 +78,7 @@ mod test {
     #[test]
     fn test_property_meta() {
         assert_eq!(
-            super::property_meta_parser("default=\"Hello World\""),
+            super::property_meta("default=\"Hello World\""),
             Ok((
                 "",
                 vec![super::MetaProperty::Default(
@@ -93,7 +91,7 @@ mod test {
     #[test]
     fn test_property_parser() {
         assert_eq!(
-            super::property_parser("o String foo"),
+            super::property("o String foo"),
             Ok((
                 "",
                 super::Property {
@@ -106,7 +104,7 @@ mod test {
             ))
         );
         assert_eq!(
-            super::property_parser("o Boolean bar123"),
+            super::property("o Boolean bar123"),
             Ok((
                 "",
                 super::Property {
@@ -120,7 +118,7 @@ mod test {
         );
 
         assert_eq!(
-            super::property_parser("o String baz default=\"Hello World\""),
+            super::property("o String baz default=\"Hello World\""),
             Ok((
                 "",
                 super::Property {

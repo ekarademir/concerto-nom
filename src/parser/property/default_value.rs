@@ -9,7 +9,7 @@ use nom::{
 };
 
 use crate::parser::{
-    common::{boolean_parser, integer_parser, keywords, long_parser, string_parser},
+    common::{boolean_value, integer_value, keywords, long_value, string_value},
     CResult,
 };
 
@@ -47,11 +47,11 @@ impl From<i64> for DefaultValue {
     }
 }
 
-fn default_value_parser<'a>(input: &'a str) -> CResult<&'a str, DefaultValue> {
-    let string_default_value = context("StringDefaultValue", string_parser);
-    let boolean_default_value = context("BooleanDefaultValue", boolean_parser);
-    let integer_default_value = context("IntegerDefaultValue", integer_parser);
-    let long_default_value = context("LongDefaultValue", long_parser);
+fn default_value<'a>(input: &'a str) -> CResult<&'a str, DefaultValue> {
+    let string_default_value = context("StringDefaultValue", string_value);
+    let boolean_default_value = context("BooleanDefaultValue", boolean_value);
+    let integer_default_value = context("IntegerDefaultValue", integer_value);
+    let long_default_value = context("LongDefaultValue", long_value);
 
     context(
         "DefaultValue",
@@ -70,7 +70,7 @@ pub(super) fn default_metaproperty_parser<'a>(input: &'a str) -> CResult<&'a str
         "DefaultMetaProperty",
         preceded(
             tuple((keywords::default, space0, tag("="), space0)),
-            default_value_parser,
+            default_value,
         ),
     )(input)
 }
