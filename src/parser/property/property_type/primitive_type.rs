@@ -1,10 +1,6 @@
-use nom::{
-    branch::alt,
-    error::{context, ContextError, ParseError},
-    IResult, Parser,
-};
+use nom::{branch::alt, error::context, Parser};
 
-use crate::parser::common::concerto;
+use crate::parser::{common::concerto, CResult};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub(crate) enum PrimitiveType {
@@ -31,9 +27,7 @@ impl<'a> From<&'a str> for PrimitiveType {
     }
 }
 
-pub(crate) fn primitive_type_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, PrimitiveType, E> {
+pub(crate) fn primitive_type_parser<'a>(input: &'a str) -> CResult<&'a str, PrimitiveType> {
     Parser::into(context(
         "PrimitiveType",
         alt((

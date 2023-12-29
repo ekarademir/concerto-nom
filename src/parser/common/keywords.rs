@@ -1,17 +1,11 @@
-use nom::{
-    bytes::complete::tag,
-    error::{context, ContextError, ParseError},
-    IResult,
-};
+use nom::{bytes::complete::tag, error::context};
 
-pub fn default<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, &'a str, E> {
+use crate::parser::CResult;
+
+pub fn default<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
     context("DefaultKeyword", tag("default"))(input)
 }
 
-pub fn namespace<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, &'a str, E> {
+pub fn namespace<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
     context("NamespaceKeyword", tag("namespace"))(input)
 }

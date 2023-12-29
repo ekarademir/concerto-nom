@@ -1,41 +1,27 @@
-use nom::{
-    bytes::complete::tag,
-    error::{context, ContextError, ParseError},
-    IResult,
-};
+use nom::{bytes::complete::tag, error::context};
 
-pub fn string<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, &'a str, E> {
+use crate::parser::CResult;
+
+pub fn string<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
     context("StringToken", tag("String"))(input)
 }
 
-pub fn boolean<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, &'a str, E> {
+pub fn boolean<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
     context("BooleanToken", tag("Boolean"))(input)
 }
 
-pub fn long<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, &'a str, E> {
+pub fn long<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
     context("LongToken", tag("Long"))(input)
 }
 
-pub fn double<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, &'a str, E> {
+pub fn double<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
     context("DoubleToken", tag("Double"))(input)
 }
 
-pub fn integer<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, &'a str, E> {
+pub fn integer<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
     context("IntegerToken", tag("Integer"))(input)
 }
 
-pub fn datetime<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, &'a str, E> {
+pub fn datetime<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
     context("DateTimeToken", tag("DateTime"))(input)
 }

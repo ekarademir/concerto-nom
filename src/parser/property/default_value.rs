@@ -3,12 +3,15 @@ use nom::{
     bytes::complete::tag,
     character::complete::space0,
     combinator::into,
-    error::{context, ContextError, ParseError},
+    error::context,
     sequence::{preceded, tuple},
-    IResult, Parser,
+    Parser,
 };
 
-use crate::parser::common::{boolean_parser, integer_parser, keywords, long_parser, string_parser};
+use crate::parser::{
+    common::{boolean_parser, integer_parser, keywords, long_parser, string_parser},
+    CResult,
+};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum DefaultValue {
@@ -44,13 +47,11 @@ impl From<i64> for DefaultValue {
     }
 }
 
-fn default_value_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, DefaultValue, E> {
-    let string_default_value = context("StringDefaultValue", string_parser::<E>);
-    let boolean_default_value = context("BooleanDefaultValue", boolean_parser::<E>);
-    let integer_default_value = context("IntegerDefaultValue", integer_parser::<E>);
-    let long_default_value = context("LongDefaultValue", long_parser::<E>);
+fn default_value_parser<'a>(input: &'a str) -> CResult<&'a str, DefaultValue> {
+    let string_default_value = context("StringDefaultValue", string_parser);
+    let boolean_default_value = context("BooleanDefaultValue", boolean_parser);
+    let integer_default_value = context("IntegerDefaultValue", integer_parser);
+    let long_default_value = context("LongDefaultValue", long_parser);
 
     context(
         "DefaultValue",
@@ -64,9 +65,7 @@ fn default_value_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     .parse(input)
 }
 
-pub(super) fn default_metaproperty_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, DefaultValue, E> {
+pub(super) fn default_metaproperty_parser<'a>(input: &'a str) -> CResult<&'a str, DefaultValue> {
     context(
         "DefaultMetaProperty",
         preceded(
@@ -78,12 +77,10 @@ pub(super) fn default_metaproperty_parser<'a, E: ParseError<&'a str> + ContextEr
 
 #[cfg(test)]
 mod test {
-    use nom::error::VerboseError;
-
     #[test]
     fn test_default_metaproperty_string() {
         assert_eq!(
-            super::default_metaproperty_parser::<VerboseError<&str>>("default=\"Hello World\""),
+            super::default_metaproperty_parser("default=\"Hello World\""),
             Ok((
                 "",
                 super::DefaultValue::StringDefaultValue("Hello World".to_string())
@@ -92,7 +89,7 @@ mod test {
         );
 
         assert_eq!(
-            super::default_metaproperty_parser::<VerboseError<&str>>("default=\'Hello World\'"),
+            super::default_metaproperty_parser("default=\'Hello World\'"),
             Ok((
                 "",
                 super::DefaultValue::StringDefaultValue("Hello World".to_string())
@@ -101,19 +98,19 @@ mod test {
         );
 
         assert_eq!(
-            super::default_metaproperty_parser::<VerboseError<&str>>("default=true"),
+            super::default_metaproperty_parser("default=true"),
             Ok(("", super::DefaultValue::BooleanDefaultValue(true))),
             "Should parse default value of a Boolean"
         );
 
         assert_eq!(
-            super::default_metaproperty_parser::<VerboseError<&str>>("default=123"),
+            super::default_metaproperty_parser("default=123"),
             Ok(("", super::DefaultValue::IntegerDefaultValue(123))),
             "Should parse default value of an Integer"
         );
 
         assert_eq!(
-            super::default_metaproperty_parser::<VerboseError<&str>>("default=3147483647"),
+            super::default_metaproperty_parser("default=3147483647"),
             Ok(("", super::DefaultValue::LongDefaultValue(3147483647))),
             "Should parse default value of an Long"
         );
