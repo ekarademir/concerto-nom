@@ -7,7 +7,7 @@ use nom::{
 use crate::parser::common::concerto;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
-pub(super) enum PrimitiveType {
+pub(crate) enum PrimitiveType {
     StringPropertyType,
     BooleanPropertyType,
     LongPropertyType,
@@ -31,7 +31,7 @@ impl<'a> From<&'a str> for PrimitiveType {
     }
 }
 
-fn primitive_type_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
+pub(crate) fn primitive_type_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
 ) -> IResult<&'a str, PrimitiveType, E> {
     Parser::into(context(
@@ -48,28 +48,11 @@ fn primitive_type_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     .parse(input)
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
-pub(super) enum PropertyType {
-    Primitive(PrimitiveType),
-}
-
-impl From<PrimitiveType> for PropertyType {
-    fn from(value: PrimitiveType) -> Self {
-        Self::Primitive(value)
-    }
-}
-
-pub(super) fn property_type_parser<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, PropertyType, E> {
-    Parser::into(context("PropertyType", alt((primitive_type_parser,)))).parse(input)
-}
-
 #[cfg(test)]
 mod test {
 
     #[test]
-    fn test_property_type() {
+    fn test_primitive_type() {
         assert!(true);
     }
 }
