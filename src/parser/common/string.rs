@@ -79,12 +79,6 @@ fn escaped_whitespace<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
     context("EscapedWhitespace", preceded(char('\\'), multispace1))(input)
 }
 
-/// Parse non-escaped characters
-fn literal<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
-    let not_quote_slash = context("NotQuoteSlash", is_not("\'\"\\"));
-    context("Literal", verify(not_quote_slash, |s: &str| !s.is_empty()))(input)
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum StringFragment<'a> {
     /// Non-escaped chunks of string
@@ -95,21 +89,22 @@ enum StringFragment<'a> {
     EscapedWS,
 }
 
-/// Parse parts of string
-fn fragment<'a>(input: &'a str) -> CResult<&'a str, StringFragment<'a>> {
-    context(
-        "Fragment",
+fn single_quoted_string<'a>(input: &'a str) -> CResult<&'a str, String> {
+    let should_be_escaped = context("SingleQuotedStringShouldBeEscaped", is_not("'\\"));
+    let literal = context(
+        "SingleQuotedStringLiteral",
+        verify(should_be_escaped, |s: &str| !s.is_empty()),
+    );
+    let fragment = context(
+        "SingleQuotedStringFragment",
         alt((
             map(literal, StringFragment::Literal),
             map(escaped_char, StringFragment::Escaped),
             value(StringFragment::EscapedWS, escaped_whitespace),
         )),
-    )(input)
-}
-
-fn build_string<'a>(input: &'a str) -> CResult<&'a str, String> {
-    context(
-        "BuildString",
+    );
+    let build_string = context(
+        "BuildSingleQuotedString",
         fold_many0(fragment, String::new, |mut acc, fragment| {
             match fragment {
                 StringFragment::Escaped(c) => acc.push(c),
@@ -118,25 +113,97 @@ fn build_string<'a>(input: &'a str) -> CResult<&'a str, String> {
             };
             acc
         }),
+    );
+
+    context(
+        "SingleQuotedString",
+        delimited(char('\''), build_string, char('\'')),
+    )(input)
+}
+
+fn double_quoted_string<'a>(input: &'a str) -> CResult<&'a str, String> {
+    let should_be_escaped = context("DoubleQuotedStringShouldBeEscaped", is_not("\"\\"));
+    let literal = context(
+        "DoubleQuotedStringLiteral",
+        verify(should_be_escaped, |s: &str| !s.is_empty()),
+    );
+    let fragment = context(
+        "DoubleQuotedStringFragment",
+        alt((
+            map(literal, StringFragment::Literal),
+            map(escaped_char, StringFragment::Escaped),
+            value(StringFragment::EscapedWS, escaped_whitespace),
+        )),
+    );
+    let build_string = context(
+        "BuildDoubleQuotedString",
+        fold_many0(fragment, String::new, |mut acc, fragment| {
+            match fragment {
+                StringFragment::Escaped(c) => acc.push(c),
+                StringFragment::EscapedWS => {}
+                StringFragment::Literal(s) => acc.push_str(s),
+            };
+            acc
+        }),
+    );
+
+    context(
+        "DoubleQuotedString",
+        delimited(char('"'), build_string, char('"')),
     )(input)
 }
 
 pub(crate) fn string_value<'a>(input: &'a str) -> CResult<&'a str, String> {
-    let single_quoted = context(
-        "SingleQuoted",
-        delimited(char('\''), *(&build_string), char('\'')),
+    context("String", alt((single_quoted_string, double_quoted_string)))(input)
+}
+
+/// Regex is pretty much a string, what differs is delimiters and should be escaped characters
+pub(crate) fn regex_value<'a>(input: &'a str) -> CResult<&'a str, String> {
+    let should_be_escaped = context("RegexStringShouldBeEscaped", is_not("/\\"));
+    let literal = context(
+        "RegexStringLiteral",
+        verify(should_be_escaped, |s: &str| !s.is_empty()),
+    );
+    let fragment = context(
+        "RegexStringFragment",
+        alt((
+            map(literal, StringFragment::Literal),
+            map(escaped_char, StringFragment::Escaped),
+            value(StringFragment::EscapedWS, escaped_whitespace),
+        )),
+    );
+    let build_string = context(
+        "BuildRegexString",
+        fold_many0(fragment, String::new, |mut acc, fragment| {
+            match fragment {
+                StringFragment::Escaped(c) => acc.push(c),
+                StringFragment::EscapedWS => {}
+                StringFragment::Literal(s) => acc.push_str(s),
+            };
+            acc
+        }),
     );
 
-    let double_quoted = context(
-        "DoubleQuoted",
-        delimited(char('"'), *(&build_string), char('"')),
-    );
-
-    context("String", alt((single_quoted, double_quoted)))(input)
+    context("RegexString", delimited(char('/'), build_string, char('/')))(input)
 }
 
 #[cfg(test)]
 mod test {
+    #[test]
+    fn test_regex() {
+        assert_eq!(
+            super::regex_value("/abc.*/"),
+            Ok(("", String::from("abc.*"))),
+            "Should parse a regex"
+        );
+
+        assert_eq!(
+            super::regex_value("/abc.*\\//"),
+            Ok(("", String::from("abc.*/"))),
+            "Should parse a regex with escape"
+        );
+    }
+
     #[test]
     fn test_simple_string() {
         assert_eq!(
@@ -155,15 +222,15 @@ mod test {
     #[test]
     fn test_string_with_escaped() {
         assert_eq!(
-            super::string_value("\"an escaped \\\" and \\t and \\\' string\""),
-            Ok(("", String::from("an escaped \" and \t and ' string"))),
-            "Should parse an escaped string with single quotes"
+            super::string_value("\"an escaped \\\" and \\t and ' \\\' string\""),
+            Ok(("", String::from("an escaped \" and \t and ' ' string"))),
+            "Should parse an escaped string with double quotes, espacing single quote optional"
         );
 
         assert_eq!(
-            super::string_value("'an escaped \\\" and \\t and \\\' string'"),
-            Ok(("", String::from("an escaped \" and \t and ' string"))),
-            "Should parse an escaped string with single quotes"
+            super::string_value("'an escaped \" \\\" and \\t and \\\' string'"),
+            Ok(("", String::from("an escaped \" \" and \t and ' string"))),
+            "Should parse an escaped string with single quotes, espacing double quote optional"
         );
     }
 

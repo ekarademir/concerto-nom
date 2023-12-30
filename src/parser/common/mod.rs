@@ -14,6 +14,7 @@ pub(crate) mod concerto;
 pub(crate) mod keywords;
 pub(crate) use numeric::integer_value;
 pub(crate) use numeric::long_value;
+pub(crate) use string::regex_value;
 pub(crate) use string::string_value;
 
 use crate::parser::CResult;

@@ -58,4 +58,6 @@ pub enum CErrorKind {
     NomError(ErrorKind),
     /// Expected token
     ExpectedFound(String, String),
+    /// String property meta
+    StringPropertyWrongMeta,
 }
