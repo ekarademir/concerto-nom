@@ -7,7 +7,7 @@ use nom::{
     sequence::pair,
 };
 
-mod numeric;
+pub(crate) mod numeric;
 mod string;
 
 pub(crate) mod concerto;

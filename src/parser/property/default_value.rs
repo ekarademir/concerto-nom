@@ -52,15 +52,15 @@ fn string_default_value<'a>(input: &'a str) -> CResult<&'a str, DefaultValue> {
 }
 
 fn boolean_default_value<'a>(input: &'a str) -> CResult<&'a str, DefaultValue> {
-    into(context("StringDefaultValue", boolean_value))(input)
+    into(context("BooleanDefaultValue", boolean_value))(input)
 }
 
 fn integer_default_value<'a>(input: &'a str) -> CResult<&'a str, DefaultValue> {
-    into(context("StringDefaultValue", integer_value))(input)
+    into(context("IntegerDefaultValue", integer_value))(input)
 }
 
 fn long_default_value<'a>(input: &'a str) -> CResult<&'a str, DefaultValue> {
-    into(context("StringDefaultValue", long_value))(input)
+    into(context("LongDefaultValue", long_value))(input)
 }
 
 fn default_value<'a>(input: &'a str) -> CResult<&'a str, DefaultValue> {

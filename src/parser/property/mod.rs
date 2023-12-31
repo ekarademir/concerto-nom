@@ -17,8 +17,10 @@ use super::CResult;
 use property_type::{property_type, PropertyType};
 
 pub use default_value::DefaultValue;
-pub use meta_property::MetaProperty;
-use meta_property::{meta_property, string_meta_property};
+use meta_property::{
+    default_string_meta_property, length_meta_property, meta_property, regex_meta_property,
+};
+pub use meta_property::{IntegerRanged, MetaProperty};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Property {
@@ -57,7 +59,11 @@ pub fn string_primitive_property<'a>(input: &'a str) -> CResult<&'a str, Propert
     let string_property_meta = context(
         "StringPropertyhMeta",
         fold_many0(
-            delimited(space0, string_meta_property, space0),
+            alt((
+                delimited(space0, default_string_meta_property, space0),
+                delimited(space0, regex_meta_property, space0),
+                delimited(space0, length_meta_property, space0),
+            )),
             Vec::new,
             |mut acc: Vec<_>, property| {
                 acc.push(property);
@@ -154,7 +160,25 @@ mod test {
         );
 
         assert_eq!(
-            super::property("o String baz regex=/abc.*/ default=\"Hello World\""),
+            super::property("o String baz length=[0, 10]"),
+            Ok((
+                "",
+                super::Property {
+                    name: String::from("baz"),
+                    type_name: super::PropertyType::Primitive(
+                        super::property_type::PrimitiveType::StringPropertyType
+                    ),
+                    meta_properties: vec![super::MetaProperty::Length(super::IntegerRanged {
+                        start: Some(0),
+                        end: Some(10),
+                    })],
+                }
+            )),
+            "Should parse string with length only"
+        );
+
+        assert_eq!(
+            super::property("o String baz length=[,100] regex=/abc.*/ default=\"Hello World\""),
             Ok((
                 "",
                 super::Property {
@@ -163,14 +187,18 @@ mod test {
                         super::property_type::PrimitiveType::StringPropertyType
                     ),
                     meta_properties: vec![
+                        super::MetaProperty::Length(super::IntegerRanged {
+                            start: None,
+                            end: Some(100)
+                        }),
                         super::MetaProperty::Regex("abc.*".to_string()),
                         super::MetaProperty::Default(super::DefaultValue::StringDefaultValue(
                             "Hello World".to_string()
-                        ))
+                        )),
                     ],
                 }
             )),
-            "Should parse string with both default and regex"
+            "Should parse string with both default and regex and length"
         );
     }
 

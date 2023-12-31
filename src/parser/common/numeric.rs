@@ -10,11 +10,10 @@ use nom::{
 use crate::parser::CResult;
 
 /// Parse an optional sign followed by a number of digits.
-pub(crate) fn decimal_value<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
+pub(crate) fn positive_decimal_value<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
     context(
-        "Decimal",
+        "PositiveDecimal",
         alt((
-            context("NegativeDecimal", recognize(pair(char('-'), digit1))),
             context(
                 "ExplicitlyPositiveDecimal",
                 recognize(pair(char('+'), digit1)),
@@ -22,6 +21,47 @@ pub(crate) fn decimal_value<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
             context("PositiveDecimal", digit1),
         )),
     )(input)
+}
+
+/// Parse an optional sign followed by a number of digits.
+pub(crate) fn negative_decimal_value<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
+    context("NegativeDecimal", recognize(pair(char('-'), digit1)))(input)
+}
+
+/// Parse an optional sign followed by a number of digits.
+pub(crate) fn decimal_value<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
+    context(
+        "Decimal",
+        alt((negative_decimal_value, positive_decimal_value)),
+    )(input)
+}
+
+/// Parse a decimal into i32
+pub(crate) fn positive_integer_value<'a>(input: &'a str) -> CResult<&'a str, i32> {
+    let maybe_i32 = map_res(positive_decimal_value, |s: &str| i32::from_str_radix(s, 10))(input);
+
+    let res: CResult<&'a str, i32> = match maybe_i32 {
+        Ok((rest, parsed)) => Ok((rest, parsed)),
+        _ => Err(NomErr::Error(ParseError::from_error_kind(
+            input,
+            ErrorKind::Digit,
+        ))),
+    };
+    res
+}
+
+/// Parse a decimal into i32
+pub(crate) fn negative_integer_value<'a>(input: &'a str) -> CResult<&'a str, i32> {
+    let maybe_i32 = map_res(negative_decimal_value, |s: &str| i32::from_str_radix(s, 10))(input);
+
+    let res: CResult<&'a str, i32> = match maybe_i32 {
+        Ok((rest, parsed)) => Ok((rest, parsed)),
+        _ => Err(NomErr::Error(ParseError::from_error_kind(
+            input,
+            ErrorKind::Digit,
+        ))),
+    };
+    res
 }
 
 /// Parse a decimal into i32
