@@ -10,6 +10,10 @@ pub fn length<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
     context("LengthKeyword", tag("length"))(input)
 }
 
+pub fn range<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
+    context("RangeKeyword", tag("range"))(input)
+}
+
 pub fn regex<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
     context("RegexKeyword", tag("regex"))(input)
 }

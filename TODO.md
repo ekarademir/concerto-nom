@@ -1,5 +1,3 @@
-- `parser::property::default_value` => float default value
-- `parser::property::meta_property` => range parser
 - `parser::common` => `date.rs`
 - `parser::property::default_value` => date default value
 - `parser::property::meta_property` => array parser

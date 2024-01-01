@@ -18,9 +18,9 @@ use property_type::{property_type, PropertyType};
 
 pub use default_value::DefaultValue;
 use meta_property::{
-    default_string_meta_property, length_meta_property, meta_property, regex_meta_property,
+    length_meta_property, meta_property, regex_meta_property, string_meta_property,
 };
-pub use meta_property::{IntegerRanged, MetaProperty};
+pub use meta_property::{LengthLimits, MetaProperty};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Property {
@@ -60,7 +60,7 @@ pub fn string_primitive_property<'a>(input: &'a str) -> CResult<&'a str, Propert
         "StringPropertyhMeta",
         fold_many0(
             alt((
-                delimited(space0, default_string_meta_property, space0),
+                delimited(space0, string_meta_property, space0),
                 delimited(space0, regex_meta_property, space0),
                 delimited(space0, length_meta_property, space0),
             )),
@@ -168,7 +168,7 @@ mod test {
                     type_name: super::PropertyType::Primitive(
                         super::property_type::PrimitiveType::StringPropertyType
                     ),
-                    meta_properties: vec![super::MetaProperty::Length(super::IntegerRanged {
+                    meta_properties: vec![super::MetaProperty::Length(super::LengthLimits {
                         start: Some(0),
                         end: Some(10),
                     })],
@@ -187,7 +187,7 @@ mod test {
                         super::property_type::PrimitiveType::StringPropertyType
                     ),
                     meta_properties: vec![
-                        super::MetaProperty::Length(super::IntegerRanged {
+                        super::MetaProperty::Length(super::LengthLimits {
                             start: None,
                             end: Some(100)
                         }),

@@ -12,6 +12,7 @@ mod string;
 
 pub(crate) mod concerto;
 pub(crate) mod keywords;
+pub(crate) use numeric::double_value;
 pub(crate) use numeric::integer_value;
 pub(crate) use numeric::long_value;
 pub(crate) use string::regex_value;

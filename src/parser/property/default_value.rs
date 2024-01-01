@@ -1,15 +1,13 @@
 use nom::{
-    branch::alt,
     bytes::complete::tag,
     character::complete::space0,
     combinator::into,
     error::context,
     sequence::{preceded, tuple},
-    Parser,
 };
 
 use crate::parser::{
-    common::{boolean_value, integer_value, keywords, long_value, string_value},
+    common::{boolean_value, double_value, integer_value, keywords, long_value, string_value},
     CResult,
 };
 
@@ -47,6 +45,12 @@ impl From<i64> for DefaultValue {
     }
 }
 
+impl From<f64> for DefaultValue {
+    fn from(value: f64) -> Self {
+        Self::DoubleDefaultValue(value)
+    }
+}
+
 fn string_default_value<'a>(input: &'a str) -> CResult<&'a str, DefaultValue> {
     into(context("StringDefaultValue", string_value))(input)
 }
@@ -63,26 +67,8 @@ fn long_default_value<'a>(input: &'a str) -> CResult<&'a str, DefaultValue> {
     into(context("LongDefaultValue", long_value))(input)
 }
 
-fn default_value<'a>(input: &'a str) -> CResult<&'a str, DefaultValue> {
-    context(
-        "DefaultValue",
-        alt((
-            boolean_default_value,
-            integer_default_value,
-            long_default_value,
-        )),
-    )
-    .parse(input)
-}
-
-pub(super) fn default_metaproperty_parser<'a>(input: &'a str) -> CResult<&'a str, DefaultValue> {
-    context(
-        "DefaultMetaProperty",
-        preceded(
-            tuple((keywords::default, space0, tag("="), space0)),
-            default_value,
-        ),
-    )(input)
+fn double_default_value<'a>(input: &'a str) -> CResult<&'a str, DefaultValue> {
+    into(context("DoubleDefaultValue", double_value))(input)
 }
 
 pub(super) fn string_default<'a>(input: &'a str) -> CResult<&'a str, DefaultValue> {
@@ -91,6 +77,46 @@ pub(super) fn string_default<'a>(input: &'a str) -> CResult<&'a str, DefaultValu
         preceded(
             tuple((keywords::default, space0, tag("="), space0)),
             string_default_value,
+        ),
+    )(input)
+}
+
+pub(super) fn double_default<'a>(input: &'a str) -> CResult<&'a str, DefaultValue> {
+    context(
+        "DoubleDefault",
+        preceded(
+            tuple((keywords::default, space0, tag("="), space0)),
+            double_default_value,
+        ),
+    )(input)
+}
+
+pub(super) fn long_default<'a>(input: &'a str) -> CResult<&'a str, DefaultValue> {
+    context(
+        "LongDefault",
+        preceded(
+            tuple((keywords::default, space0, tag("="), space0)),
+            long_default_value,
+        ),
+    )(input)
+}
+
+pub(super) fn integer_default<'a>(input: &'a str) -> CResult<&'a str, DefaultValue> {
+    context(
+        "IntegerDefault",
+        preceded(
+            tuple((keywords::default, space0, tag("="), space0)),
+            integer_default_value,
+        ),
+    )(input)
+}
+
+pub(super) fn boolean_default<'a>(input: &'a str) -> CResult<&'a str, DefaultValue> {
+    context(
+        "BooleanDefault",
+        preceded(
+            tuple((keywords::default, space0, tag("="), space0)),
+            boolean_default_value,
         ),
     )(input)
 }
@@ -119,9 +145,18 @@ mod test {
     }
 
     #[test]
+    fn test_double_default_value() {
+        assert_eq!(
+            super::double_default("default=3.14e-2"),
+            Ok(("", super::DefaultValue::DoubleDefaultValue(3.14e-2))),
+            "Should parse default value of a Double"
+        );
+    }
+
+    #[test]
     fn test_boolean_default_value() {
         assert_eq!(
-            super::default_metaproperty_parser("default=true"),
+            super::boolean_default("default=true"),
             Ok(("", super::DefaultValue::BooleanDefaultValue(true))),
             "Should parse default value of a Boolean"
         );
@@ -130,7 +165,7 @@ mod test {
     #[test]
     fn test_integer_default_value() {
         assert_eq!(
-            super::default_metaproperty_parser("default=123"),
+            super::integer_default("default=123"),
             Ok(("", super::DefaultValue::IntegerDefaultValue(123))),
             "Should parse default value of an Integer"
         );
@@ -139,7 +174,7 @@ mod test {
     #[test]
     fn test_long_default_value() {
         assert_eq!(
-            super::default_metaproperty_parser("default=3147483647"),
+            super::long_default("default=3147483647"),
             Ok(("", super::DefaultValue::LongDefaultValue(3147483647))),
             "Should parse default value of an Long"
         );
