@@ -15,12 +15,12 @@ use crate::parser::{
 
 use super::MetaProperty;
 
-struct Ranged<T> {
-    start: Option<T>,
-    end: Option<T>,
+pub(crate) struct Ranged<T> {
+    pub(crate) start: Option<T>,
+    pub(crate) end: Option<T>,
 }
 
-fn ranged_parser<
+pub(crate) fn ranged_parser<
     'a,
     T,
     P: Parser<&'a str, T, CError<&'a str>> + Copy,

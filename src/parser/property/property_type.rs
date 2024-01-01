@@ -2,7 +2,7 @@ use nom::{branch::alt, error::context, Parser};
 
 use crate::parser::{common::concerto, CResult};
 
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone)]
 pub(super) enum PropertyType {
     Primitive(PrimitiveType),
 }
@@ -17,8 +17,8 @@ pub(super) fn property_type<'a>(input: &'a str) -> CResult<&'a str, PropertyType
     Parser::into(context("PropertyType", alt((primitive_type,)))).parse(input)
 }
 
-#[derive(Debug, Eq, PartialEq, Clone)]
-pub(crate) enum PrimitiveType {
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum PrimitiveType {
     StringPropertyType,
     BooleanPropertyType,
     LongPropertyType,
@@ -38,6 +38,20 @@ impl<'a> From<&'a str> for PrimitiveType {
             "Integer" => Self::IntegerPropertyType,
             "DateTime" => Self::DateTimePropertyType,
             _ => Self::None,
+        }
+    }
+}
+
+impl<'a> From<PrimitiveType> for &'a str {
+    fn from(value: PrimitiveType) -> Self {
+        match value {
+            PrimitiveType::StringPropertyType => "String",
+            PrimitiveType::BooleanPropertyType => "Boolean",
+            PrimitiveType::LongPropertyType => "Long",
+            PrimitiveType::DoublePropertyType => "Double",
+            PrimitiveType::IntegerPropertyType => "Integer",
+            PrimitiveType::DateTimePropertyType => "DateTime",
+            _ => "",
         }
     }
 }

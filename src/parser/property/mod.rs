@@ -1,20 +1,26 @@
 mod default_value;
+mod internal;
 mod meta_property;
 mod property_type;
+
+// After refactor
+pub mod boolean_property;
+pub mod string_property;
 
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{space0, space1},
+    character::complete::{char, space0, space1},
+    combinator::{into, recognize},
     error::context,
     multi::fold_many0,
-    sequence::{delimited, pair, preceded, separated_pair},
+    sequence::{delimited, pair, preceded, separated_pair, tuple},
     Parser,
 };
 
 use super::common::token;
 use super::CResult;
-use property_type::{property_type, PropertyType};
+use property_type::{property_type, PrimitiveType, PropertyType};
 
 pub use default_value::DefaultValue;
 use meta_property::{
@@ -99,7 +105,8 @@ pub fn generic_property<'a>(input: &'a str) -> CResult<&'a str, Property> {
     )(input)
 }
 
-pub fn property<'a>(input: &'a str) -> CResult<&'a str, Property> {
+// Remove
+pub fn property_definition<'a>(input: &'a str) -> CResult<&'a str, Property> {
     let body_parser = context(
         "PropertyBody",
         alt((string_primitive_property, generic_property)),
@@ -114,7 +121,7 @@ mod test {
     #[test]
     fn test_string_property() {
         assert_eq!(
-            super::property("o String foo"),
+            super::property_definition("o String foo"),
             Ok((
                 "",
                 super::Property {
@@ -129,7 +136,7 @@ mod test {
         );
 
         assert_eq!(
-            super::property("o String baz default=\"Hello World\""),
+            super::property_definition("o String baz default=\"Hello World\""),
             Ok((
                 "",
                 super::Property {
@@ -146,7 +153,7 @@ mod test {
         );
 
         assert_eq!(
-            super::property("o String baz regex=/abc.*/"),
+            super::property_definition("o String baz regex=/abc.*/"),
             Ok((
                 "",
                 super::Property {
@@ -161,7 +168,7 @@ mod test {
         );
 
         assert_eq!(
-            super::property("o String baz length=[0, 10]"),
+            super::property_definition("o String baz length=[0, 10]"),
             Ok((
                 "",
                 super::Property {
@@ -179,7 +186,9 @@ mod test {
         );
 
         assert_eq!(
-            super::property("o String baz length=[,100] regex=/abc.*/ default=\"Hello World\""),
+            super::property_definition(
+                "o String baz length=[,100] regex=/abc.*/ default=\"Hello World\""
+            ),
             Ok((
                 "",
                 super::Property {
@@ -206,7 +215,7 @@ mod test {
     #[test]
     fn test_property_parser() {
         assert_eq!(
-            super::property("o Boolean bar123"),
+            super::property_definition("o Boolean bar123"),
             Ok((
                 "",
                 super::Property {
