@@ -3,6 +3,21 @@ use nom::{branch::alt, error::context, Parser};
 use crate::parser::{common::concerto, CResult};
 
 #[derive(Debug, Eq, PartialEq, Clone)]
+pub(super) enum PropertyType {
+    Primitive(PrimitiveType),
+}
+
+impl From<PrimitiveType> for PropertyType {
+    fn from(value: PrimitiveType) -> Self {
+        Self::Primitive(value)
+    }
+}
+
+pub(super) fn property_type<'a>(input: &'a str) -> CResult<&'a str, PropertyType> {
+    Parser::into(context("PropertyType", alt((primitive_type,)))).parse(input)
+}
+
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub(crate) enum PrimitiveType {
     StringPropertyType,
     BooleanPropertyType,
@@ -47,6 +62,11 @@ mod test {
 
     #[test]
     fn test_primitive_type() {
+        assert!(true);
+    }
+
+    #[test]
+    fn test_property_type() {
         assert!(true);
     }
 }

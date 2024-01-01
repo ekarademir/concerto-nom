@@ -18,9 +18,9 @@ use property_type::{property_type, PropertyType};
 
 pub use default_value::DefaultValue;
 use meta_property::{
-    length_meta_property, meta_property, regex_meta_property, string_meta_property,
+    meta_property, ranged::length_meta_property, regex_meta_property, string_meta_property,
+    MetaProperty,
 };
-pub use meta_property::{LengthLimits, MetaProperty};
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Property {
@@ -110,6 +110,7 @@ pub fn property<'a>(input: &'a str) -> CResult<&'a str, Property> {
 
 #[cfg(test)]
 mod test {
+    use crate::parser::property::meta_property::ranged::LengthLimits;
     #[test]
     fn test_string_property() {
         assert_eq!(
@@ -168,7 +169,7 @@ mod test {
                     type_name: super::PropertyType::Primitive(
                         super::property_type::PrimitiveType::StringPropertyType
                     ),
-                    meta_properties: vec![super::MetaProperty::Length(super::LengthLimits {
+                    meta_properties: vec![super::MetaProperty::Length(LengthLimits {
                         start: Some(0),
                         end: Some(10),
                     })],
@@ -187,7 +188,7 @@ mod test {
                         super::property_type::PrimitiveType::StringPropertyType
                     ),
                     meta_properties: vec![
-                        super::MetaProperty::Length(super::LengthLimits {
+                        super::MetaProperty::Length(LengthLimits {
                             start: None,
                             end: Some(100)
                         }),
