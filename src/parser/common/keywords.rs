@@ -25,3 +25,11 @@ pub fn namespace<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
 pub fn optional<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
     context("OptionalKeyword", tag("optional"))(input)
 }
+
+pub fn concept<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
+    context("ConceptKeyword", tag("concept"))(input)
+}
+
+pub fn abstrakt<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
+    context("AbstractKeyword", tag("abstract"))(input)
+}

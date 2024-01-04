@@ -60,4 +60,6 @@ pub enum CErrorKind {
     ExpectedFound(String, String),
     /// String property meta
     StringPropertyWrongMeta,
+    /// With context
+    Context(&'static str),
 }
