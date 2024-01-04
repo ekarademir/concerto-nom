@@ -52,6 +52,28 @@ enum AnnotatedType {
     Array,
 }
 
+/// Parses a generic proeprty type then returns (type name, the name of the defined type, is array) tuple
+pub fn generic_property<'a>(input: &'a str) -> CResult<&'a str, (&'a str, &'a str, bool)> {
+    let single_type = delimited(tuple((space0, char('o'), space0)), token, space0)
+        .map(|class: &'a str| (class, AnnotatedType::Single));
+    let array_type = delimited(
+        tuple((space0, char('o'), space0)),
+        token,
+        tuple((space0, char('['), space0, char(']'), space0)),
+    )
+    .map(|class: &'a str| (class, AnnotatedType::Array));
+
+    context(
+        "GenericProperty",
+        tuple((alt((array_type, single_type)), token)).map(|((class, annotated), name)| {
+            match annotated {
+                AnnotatedType::Array => (class, name, true),
+                AnnotatedType::Single => (class, name, false),
+            }
+        }),
+    )(input)
+}
+
 /// Parses provided primitive type then returns (the name of the defined type, is array) tuple
 pub fn primitive_property<'a>(
     primitive_type: PrimitiveType,
