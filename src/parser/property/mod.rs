@@ -5,22 +5,23 @@ mod property_type;
 
 // After refactor
 pub mod boolean_property;
+pub mod integer_property;
+pub mod long_property;
 pub mod string_property;
 
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::{char, space0, space1},
-    combinator::{into, recognize},
+    character::complete::{space0, space1},
     error::context,
     multi::fold_many0,
-    sequence::{delimited, pair, preceded, separated_pair, tuple},
+    sequence::{delimited, pair, preceded, separated_pair},
     Parser,
 };
 
 use super::common::token;
 use super::CResult;
-use property_type::{property_type, PrimitiveType, PropertyType};
+use property_type::{property_type, PropertyType};
 
 pub use default_value::DefaultValue;
 use meta_property::{
