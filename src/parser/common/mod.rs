@@ -7,6 +7,7 @@ use nom::{
     sequence::pair,
 };
 
+pub(crate) mod datetime;
 pub(crate) mod keywords;
 pub(crate) mod numeric;
 pub(crate) mod string;

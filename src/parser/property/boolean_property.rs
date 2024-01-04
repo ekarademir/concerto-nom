@@ -1,6 +1,7 @@
 use nom::{
+    branch::alt,
     character::complete::{char, space0, space1},
-    combinator::{into, opt},
+    combinator::into,
     error::context,
     sequence::{preceded, tuple},
     Parser,
@@ -19,14 +20,28 @@ pub struct BooleanProperty {
 }
 
 pub fn boolean_property<'a>(input: &'a str) -> CResult<&'a str, BooleanProperty> {
-    context(
-        "BooleanProperty",
+    let boolean_with_default = context(
+        "BooleanWithDefault",
         primitive_property(PrimitiveType::BooleanPropertyType)
-            .and(opt(preceded(space1, boolean_default_value)))
+            .and(preceded(space1, boolean_default_value))
             .map(|(property_name, default_value)| BooleanProperty {
-                default_value,
+                default_value: Some(default_value),
                 name: property_name.to_string(),
             }),
+    );
+    let boolean_without_default = context(
+        "BooleanWithoutDefault",
+        primitive_property(PrimitiveType::BooleanPropertyType).map(|property_name| {
+            BooleanProperty {
+                default_value: None,
+                name: property_name.to_string(),
+            }
+        }),
+    );
+
+    context(
+        "BooleanProperty",
+        alt((boolean_with_default, boolean_without_default)),
     )(input)
 }
 
@@ -78,6 +93,18 @@ mod test {
                 }
             )),
             "Should parse boolean with true default value"
+        );
+
+        assert_eq!(
+            super::boolean_property("o Boolean baz default=42"),
+            Ok((
+                " default=42",
+                super::BooleanProperty {
+                    name: String::from("baz"),
+                    default_value: None,
+                }
+            )),
+            "Should not parse boolean with wrong default value"
         );
     }
 }

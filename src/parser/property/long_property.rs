@@ -134,6 +134,19 @@ mod test {
         );
 
         assert_eq!(
+            super::long_property("o Long baz default='Hello'"),
+            Ok((
+                " default='Hello'",
+                super::LongProperty {
+                    name: String::from("baz"),
+                    default_value: None,
+                    domain_validator: None
+                }
+            )),
+            "Should not parse long with wring default value"
+        );
+
+        assert_eq!(
             super::long_property("o Long baz    range   = [ 0 , 10  ]"),
             Ok((
                 "",
@@ -163,6 +176,19 @@ mod test {
                 }
             )),
             "Should parse long with both default and range"
+        );
+
+        assert_eq!(
+            super::long_property("o Long baz \tdefault  =  'Hello'    range=[,100]"),
+            Ok((
+                " \tdefault  =  'Hello'    range=[,100]",
+                super::LongProperty {
+                    name: String::from("baz"),
+                    default_value: None,
+                    domain_validator: None
+                }
+            )),
+            "Should not parse long with wrong default value even though other meta is correct"
         );
 
         assert_eq!(

@@ -1,6 +1,7 @@
 mod internal;
 
 pub mod boolean_property;
+pub mod datetime_property;
 pub mod double_property;
 pub mod integer_property;
 pub mod long_property;
