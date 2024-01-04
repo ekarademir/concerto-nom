@@ -92,19 +92,19 @@ pub(crate) fn positive_integer_value<'a>(input: &'a str) -> CResult<&'a str, i32
     res
 }
 
-/// Parse a decimal guarantied to be negative, into i32
-pub(crate) fn negative_integer_value<'a>(input: &'a str) -> CResult<&'a str, i32> {
-    let maybe_i32 = map_res(negative_decimal_value, |s: &str| i32::from_str_radix(s, 10))(input);
+// /// Parse a decimal guarantied to be negative, into i32
+// pub(crate) fn negative_integer_value<'a>(input: &'a str) -> CResult<&'a str, i32> {
+//     let maybe_i32 = map_res(negative_decimal_value, |s: &str| i32::from_str_radix(s, 10))(input);
 
-    let res: CResult<&'a str, i32> = match maybe_i32 {
-        Ok((rest, parsed)) => Ok((rest, parsed)),
-        _ => Err(NomErr::Error(ParseError::from_error_kind(
-            input,
-            ErrorKind::Digit,
-        ))),
-    };
-    res
-}
+//     let res: CResult<&'a str, i32> = match maybe_i32 {
+//         Ok((rest, parsed)) => Ok((rest, parsed)),
+//         _ => Err(NomErr::Error(ParseError::from_error_kind(
+//             input,
+//             ErrorKind::Digit,
+//         ))),
+//     };
+//     res
+// }
 
 /// Parse a decimal into i32
 pub(crate) fn integer_value<'a>(input: &'a str) -> CResult<&'a str, i32> {

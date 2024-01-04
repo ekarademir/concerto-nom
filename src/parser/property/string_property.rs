@@ -9,11 +9,12 @@ use nom::{
 };
 
 use crate::parser::{
-    common::{keywords, numeric::positive_integer_value, regex_value, string_value},
-    property::{
-        internal::{primitive_property, PrimitiveType},
-        meta_property::ranged::{ranged_parser, Ranged},
+    common::{
+        keywords,
+        numeric::positive_integer_value,
+        string::{regex_value, string_value},
     },
+    property::internal::{primitive_property, ranged_parser, PrimitiveType, Ranged},
     CResult,
 };
 

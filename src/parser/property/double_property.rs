@@ -10,10 +10,7 @@ use nom::{
 
 use crate::parser::{
     common::{keywords, numeric::double_value},
-    property::{
-        internal::{primitive_property, PrimitiveType},
-        meta_property::ranged::{ranged_parser, Ranged},
-    },
+    property::internal::{primitive_property, ranged_parser, PrimitiveType, Ranged},
     CResult,
 };
 
