@@ -1,9 +1,10 @@
 use nom::{
-    branch::{alt, permutation},
+    branch::alt,
     character::complete::{char, space0, space1},
-    combinator::{into, opt},
+    combinator::into,
     error::context,
-    sequence::{preceded, separated_pair, terminated, tuple},
+    multi::fold_many_m_n,
+    sequence::{preceded, tuple},
     Parser,
 };
 
@@ -44,33 +45,58 @@ impl From<Ranged<i32>> for StringLengthValidator {
         }
     }
 }
+enum StringMetaProperty {
+    Regex(StringRegexValidator),
+    Default(String),
+    Length(StringLengthValidator),
+}
 
+/// Parses a primitive StringProperty with its default meta properties.
+/// If a meta property is defined twice, second one will overwrite the first.
+/// Meta property parser will only run three times.
 pub fn string_property<'a>(input: &'a str) -> CResult<&'a str, StringProperty> {
-    let property_with_meta = separated_pair(
-        primitive_property(PrimitiveType::StringPropertyType),
-        space1,
-        permutation((
-            opt(string_default_value),
-            opt(string_regex_validator),
-            opt(context("StringLengthValidator", string_length_validator)),
-        )),
-    );
-    let property_without_meta = terminated(
-        primitive_property(PrimitiveType::StringPropertyType),
-        space0,
+    let length = context(
+        "StringLengthValidator",
+        preceded(space1, string_length_validator),
     )
-    .map(|property_name: &'a str| (property_name, (None, None, None)));
+    .map(|x| StringMetaProperty::Length(x));
+    let regex = preceded(space1, string_regex_validator).map(|x| StringMetaProperty::Regex(x));
+    let default = preceded(space1, string_default_value).map(|x| StringMetaProperty::Default(x));
+
+    let property_meta = context("PropertyMeta", alt((length, regex, default)));
 
     context(
         "StringProperty",
-        alt((property_with_meta, property_without_meta)).map(
-            |(property_name, (default_value, regex_validator, length_validator))| StringProperty {
-                name: String::from(property_name),
-                default_value,
-                regex_validator,
-                length_validator,
-            },
-        ),
+        primitive_property(PrimitiveType::StringPropertyType)
+            .and(fold_many_m_n(
+                0,
+                3,
+                property_meta,
+                Vec::new,
+                |mut acc: Vec<_>, meta_prop| {
+                    acc.push(meta_prop);
+                    acc
+                },
+            ))
+            .map(|(property_name, meta_props)| {
+                let mut prop = StringProperty {
+                    name: property_name.to_string(),
+                    default_value: None,
+                    regex_validator: None,
+                    length_validator: None,
+                };
+
+                for meta_prop in meta_props {
+                    use StringMetaProperty::*;
+                    match meta_prop {
+                        Default(x) => prop.default_value = Some(x),
+                        Regex(x) => prop.regex_validator = Some(x),
+                        Length(x) => prop.length_validator = Some(x),
+                    }
+                }
+
+                prop
+            }),
     )(input)
 }
 
@@ -138,7 +164,7 @@ mod test {
         );
 
         assert_eq!(
-            super::string_property("o String baz regex=/abc.*/"),
+            super::string_property("o String baz   regex = /abc.*/"),
             Ok((
                 "",
                 super::StringProperty {
@@ -155,7 +181,7 @@ mod test {
         );
 
         assert_eq!(
-            super::string_property("o String baz length=[0, 10]"),
+            super::string_property("o String baz    length   = [ 0 , 10  ]"),
             Ok((
                 "",
                 super::StringProperty {
@@ -173,7 +199,7 @@ mod test {
 
         assert_eq!(
             super::string_property(
-                "o String baz length=[,100] regex=/abc.*/ default=\"Hello World\""
+                "o String baz regex  =\t/abc.*/ \tdefault  =   \"Hello World\"    length=[,100]"
             ),
             Ok((
                 "",
@@ -191,6 +217,28 @@ mod test {
                 }
             )),
             "Should parse string with both default and regex and length"
+        );
+
+        assert_eq!(
+            super::string_property(
+                "o String baz regex  =\t/abc.*/ length=[,  100 ] \tdefault  =   \"Hello World\""
+            ),
+            Ok((
+                "",
+                super::StringProperty {
+                    name: String::from("baz"),
+                    default_value: Some(String::from("Hello World")),
+                    regex_validator: Some(super::StringRegexValidator {
+                        pattern: String::from("abc.*"),
+                        flags: String::from("")
+                    }),
+                    length_validator: Some(super::StringLengthValidator {
+                        min_length: None,
+                        max_length: Some(100)
+                    })
+                }
+            )),
+            "Should parse string with both default and regex and length in a different order"
         );
     }
 }
