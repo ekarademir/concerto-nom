@@ -17,9 +17,10 @@ use crate::parser::{
 #[derive(Debug, PartialEq, Clone)]
 pub struct IntegerProperty {
     pub name: String,
+    pub is_optional: bool,
+    pub is_array: bool,
     pub default_value: Option<i32>,
     pub domain_validator: Option<IntegerDomainValidator>,
-    pub is_optional: bool,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -69,12 +70,13 @@ pub fn integer_property<'a>(input: &'a str) -> CResult<&'a str, IntegerProperty>
                     acc
                 },
             ))
-            .map(|(property_name, meta_props)| {
+            .map(|((property_name, is_array), meta_props)| {
                 let mut prop = IntegerProperty {
                     name: property_name.to_string(),
                     default_value: None,
                     domain_validator: None,
                     is_optional: false,
+                    is_array,
                 };
 
                 for meta_prop in meta_props {
@@ -121,9 +123,25 @@ mod test {
                     default_value: None,
                     domain_validator: None,
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse integer with no meta properties"
+        );
+
+        assert_eq!(
+            super::integer_property("o Integer[\t] foo"),
+            Ok((
+                "",
+                super::IntegerProperty {
+                    name: String::from("foo"),
+                    default_value: None,
+                    domain_validator: None,
+                    is_optional: false,
+                    is_array: true,
+                }
+            )),
+            "Should parse array flag"
         );
 
         assert_eq!(
@@ -135,6 +153,7 @@ mod test {
                     default_value: Some(42),
                     domain_validator: None,
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse integer with default value only"
@@ -152,6 +171,7 @@ mod test {
                         upper: Some(10)
                     }),
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse integer with range only"
@@ -169,6 +189,7 @@ mod test {
                         upper: Some(10)
                     }),
                     is_optional: true,
+                    is_array: false,
                 }
             )),
             "Should parse integer with optional flag"
@@ -186,6 +207,7 @@ mod test {
                         upper: Some(100)
                     }),
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse integer with both default and range"
@@ -203,6 +225,7 @@ mod test {
                         upper: Some(100)
                     }),
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse integer with both default and range in a different order"

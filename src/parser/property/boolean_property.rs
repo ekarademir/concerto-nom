@@ -17,8 +17,9 @@ use crate::parser::{
 #[derive(Debug, PartialEq, Clone)]
 pub struct BooleanProperty {
     pub name: String,
-    pub default_value: Option<bool>,
     pub is_optional: bool,
+    pub is_array: bool,
+    pub default_value: Option<bool>,
 }
 
 enum BooleanMetaProperty {
@@ -45,11 +46,12 @@ pub fn boolean_property<'a>(input: &'a str) -> CResult<&'a str, BooleanProperty>
                     acc
                 },
             ))
-            .map(|(property_name, meta_props)| {
+            .map(|((property_name, is_array), meta_props)| {
                 let mut prop = BooleanProperty {
                     name: property_name.to_string(),
                     default_value: None,
                     is_optional: false,
+                    is_array,
                 };
 
                 for meta_prop in meta_props {
@@ -87,9 +89,24 @@ mod test {
                     name: String::from("foo"),
                     default_value: None,
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse boolean with no meta properties"
+        );
+
+        assert_eq!(
+            super::boolean_property("o Boolean[] foo"),
+            Ok((
+                "",
+                super::BooleanProperty {
+                    name: String::from("foo"),
+                    default_value: None,
+                    is_optional: false,
+                    is_array: true,
+                }
+            )),
+            "Should parse boolean with array flag"
         );
 
         assert_eq!(
@@ -100,6 +117,7 @@ mod test {
                     name: String::from("baz"),
                     default_value: Some(false),
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse boolean with false default value"
@@ -113,6 +131,7 @@ mod test {
                     name: String::from("baz"),
                     default_value: Some(true),
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse boolean with true default value"
@@ -126,6 +145,7 @@ mod test {
                     name: String::from("baz"),
                     default_value: Some(true),
                     is_optional: true,
+                    is_array: false,
                 }
             )),
             "Should parse boolean with optional flag"
@@ -139,6 +159,7 @@ mod test {
                     name: String::from("baz"),
                     default_value: None,
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should not parse boolean with wrong default value"

@@ -17,9 +17,10 @@ use crate::parser::{
 #[derive(Debug, PartialEq, Clone)]
 pub struct LongProperty {
     pub name: String,
+    pub is_optional: bool,
+    pub is_array: bool,
     pub default_value: Option<i64>,
     pub domain_validator: Option<LongDomainValidator>,
-    is_optional: bool,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -69,12 +70,13 @@ pub fn long_property<'a>(input: &'a str) -> CResult<&'a str, LongProperty> {
                     acc
                 },
             ))
-            .map(|(property_name, meta_props)| {
+            .map(|((property_name, is_array), meta_props)| {
                 let mut prop = LongProperty {
                     name: property_name.to_string(),
                     default_value: None,
                     domain_validator: None,
                     is_optional: false,
+                    is_array,
                 };
 
                 for meta_prop in meta_props {
@@ -121,6 +123,7 @@ mod test {
                     default_value: None,
                     domain_validator: None,
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse long with no meta properties"
@@ -135,6 +138,7 @@ mod test {
                     default_value: Some(42),
                     domain_validator: None,
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse long with default value only"
@@ -149,6 +153,7 @@ mod test {
                     default_value: Some(42),
                     domain_validator: None,
                     is_optional: true,
+                    is_array: false,
                 }
             )),
             "Should parse long with optional flag"
@@ -163,6 +168,7 @@ mod test {
                     default_value: None,
                     domain_validator: None,
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should not parse long with wrong default value"
@@ -180,9 +186,28 @@ mod test {
                         upper: Some(10)
                     }),
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse long with range only"
+        );
+
+        assert_eq!(
+            super::long_property("o Long[] baz    range   = [ 0 , 10  ]"),
+            Ok((
+                "",
+                super::LongProperty {
+                    name: String::from("baz"),
+                    default_value: None,
+                    domain_validator: Some(super::LongDomainValidator {
+                        lower: Some(0),
+                        upper: Some(10)
+                    }),
+                    is_optional: false,
+                    is_array: true,
+                }
+            )),
+            "Should parse long with array flag"
         );
 
         assert_eq!(
@@ -197,6 +222,7 @@ mod test {
                         upper: Some(100)
                     }),
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse long with both default and range"
@@ -211,6 +237,7 @@ mod test {
                     default_value: None,
                     domain_validator: None,
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should not parse long with wrong default value even though other meta is correct"
@@ -228,6 +255,7 @@ mod test {
                         upper: Some(100)
                     }),
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse long with both default and range in a different order"

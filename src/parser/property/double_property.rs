@@ -17,9 +17,10 @@ use crate::parser::{
 #[derive(Debug, PartialEq, Clone)]
 pub struct DoubleProperty {
     pub name: String,
+    pub is_optional: bool,
+    pub is_array: bool,
     pub default_value: Option<f64>,
     pub domain_validator: Option<DoubleDomainValidator>,
-    pub is_optional: bool,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -69,12 +70,13 @@ pub fn double_property<'a>(input: &'a str) -> CResult<&'a str, DoubleProperty> {
                     acc
                 },
             ))
-            .map(|(property_name, meta_props)| {
+            .map(|((property_name, is_array), meta_props)| {
                 let mut prop = DoubleProperty {
                     name: property_name.to_string(),
                     default_value: None,
                     domain_validator: None,
                     is_optional: false,
+                    is_array,
                 };
 
                 for meta_prop in meta_props {
@@ -121,6 +123,7 @@ mod test {
                     default_value: None,
                     domain_validator: None,
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse double with no meta properties"
@@ -135,6 +138,7 @@ mod test {
                     default_value: None,
                     domain_validator: None,
                     is_optional: true,
+                    is_array: false,
                 }
             )),
             "Should parse double with optional flag"
@@ -149,6 +153,7 @@ mod test {
                     default_value: Some(42.0),
                     domain_validator: None,
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse double with default value only"
@@ -166,6 +171,7 @@ mod test {
                         upper: Some(10.0)
                     }),
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse double with range only"
@@ -183,6 +189,7 @@ mod test {
                         upper: Some(100.4)
                     }),
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse double with both default and range"
@@ -202,6 +209,7 @@ mod test {
                         upper: Some(100.4)
                     }),
                     is_optional: true,
+                    is_array: false,
                 }
             )),
             "Should parse double with both default and range and with optional flag"
@@ -219,9 +227,28 @@ mod test {
                         upper: Some(100.0)
                     }),
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse double with both default and range in a different order"
+        );
+
+        assert_eq!(
+            super::double_property("o Double [  ] baz \trange=[,  100.0 ] \tdefault  =   42.5e-3"),
+            Ok((
+                "",
+                super::DoubleProperty {
+                    name: String::from("baz"),
+                    default_value: Some(42.5e-3),
+                    domain_validator: Some(super::DoubleDomainValidator {
+                        lower: None,
+                        upper: Some(100.0)
+                    }),
+                    is_optional: false,
+                    is_array: true,
+                }
+            )),
+            "Should parse double with array flag"
         );
     }
 }

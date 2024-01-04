@@ -21,10 +21,11 @@ use crate::parser::{
 #[derive(Debug, PartialEq, Clone)]
 pub struct StringProperty {
     pub name: String,
+    pub is_optional: bool,
+    pub is_array: bool,
     pub default_value: Option<String>,
     pub regex_validator: Option<StringRegexValidator>,
     pub length_validator: Option<StringLengthValidator>,
-    pub is_optional: bool,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -82,13 +83,14 @@ pub fn string_property<'a>(input: &'a str) -> CResult<&'a str, StringProperty> {
                     acc
                 },
             ))
-            .map(|(property_name, meta_props)| {
+            .map(|((property_name, is_array), meta_props)| {
                 let mut prop = StringProperty {
                     name: property_name.to_string(),
                     default_value: None,
                     regex_validator: None,
                     length_validator: None,
                     is_optional: false,
+                    is_array,
                 };
 
                 for meta_prop in meta_props {
@@ -151,6 +153,7 @@ mod test {
                     regex_validator: None,
                     length_validator: None,
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse string with no meta properties"
@@ -166,6 +169,7 @@ mod test {
                     regex_validator: None,
                     length_validator: None,
                     is_optional: true,
+                    is_array: false,
                 }
             )),
             "Should parse string with optional flag"
@@ -181,6 +185,7 @@ mod test {
                     regex_validator: None,
                     length_validator: None,
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse string with default value only"
@@ -199,9 +204,29 @@ mod test {
                     }),
                     length_validator: None,
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse string with regex value only"
+        );
+
+        assert_eq!(
+            super::string_property("o String []   baz   regex = /abc.*/"),
+            Ok((
+                "",
+                super::StringProperty {
+                    name: String::from("baz"),
+                    default_value: None,
+                    regex_validator: Some(super::StringRegexValidator {
+                        pattern: String::from("abc.*"),
+                        flags: String::from("")
+                    }),
+                    length_validator: None,
+                    is_optional: false,
+                    is_array: true,
+                }
+            )),
+            "Should parse string with array flag"
         );
 
         assert_eq!(
@@ -217,6 +242,7 @@ mod test {
                         max_length: Some(10)
                     }),
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse string with length only"
@@ -240,6 +266,7 @@ mod test {
                         max_length: Some(100)
                     }),
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse string with both default and regex and length"
@@ -263,6 +290,7 @@ mod test {
                         max_length: Some(100)
                     }),
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse string with both default and regex and length in a different order"

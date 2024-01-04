@@ -17,8 +17,9 @@ use crate::parser::{
 #[derive(Debug, PartialEq, Clone)]
 pub struct DateTimeProperty {
     pub name: String,
-    pub default_value: Option<String>,
     pub is_optional: bool,
+    pub is_array: bool,
+    pub default_value: Option<String>,
 }
 
 enum DateTimeMetaProperty {
@@ -46,11 +47,12 @@ pub fn datetime_property<'a>(input: &'a str) -> CResult<&'a str, DateTimePropert
                     acc
                 },
             ))
-            .map(|(property_name, meta_props)| {
+            .map(|((property_name, is_array), meta_props)| {
                 let mut prop = DateTimeProperty {
                     name: property_name.to_string(),
                     default_value: None,
                     is_optional: false,
+                    is_array,
                 };
 
                 for meta_prop in meta_props {
@@ -88,6 +90,7 @@ mod test {
                     name: String::from("foo"),
                     default_value: None,
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse datetime with no meta properties"
@@ -101,6 +104,7 @@ mod test {
                     name: String::from("baz"),
                     default_value: Some(String::from("2024-01-04T18:39:55+02:30")),
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should parse datetime with default value"
@@ -114,9 +118,24 @@ mod test {
                     name: String::from("baz"),
                     default_value: Some(String::from("2024-01-04T18:39:55+02:30")),
                     is_optional: true,
+                    is_array: false,
                 }
             )),
             "Should parse datetime with optional flag"
+        );
+
+        assert_eq!(
+            super::datetime_property("o DateTime[] baz default=2024-01-04T18:39:55+02:30 optional"),
+            Ok((
+                "",
+                super::DateTimeProperty {
+                    name: String::from("baz"),
+                    default_value: Some(String::from("2024-01-04T18:39:55+02:30")),
+                    is_optional: true,
+                    is_array: true,
+                }
+            )),
+            "Should parse datetime with array flag"
         );
 
         assert_eq!(
@@ -127,6 +146,7 @@ mod test {
                     name: String::from("baz"),
                     default_value: None,
                     is_optional: false,
+                    is_array: false,
                 }
             )),
             "Should not parse datetime with wring default value"

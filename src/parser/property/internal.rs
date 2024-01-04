@@ -17,7 +17,6 @@ pub enum PrimitiveType {
     DoublePropertyType,
     IntegerPropertyType,
     DateTimePropertyType,
-    None,
 }
 
 impl<'a> From<&'a str> for PrimitiveType {
@@ -29,36 +28,58 @@ impl<'a> From<&'a str> for PrimitiveType {
             "Double" => Self::DoublePropertyType,
             "Integer" => Self::IntegerPropertyType,
             "DateTime" => Self::DateTimePropertyType,
-            _ => Self::None,
+            _ => unreachable!(),
         }
     }
 }
 
 impl<'a> From<PrimitiveType> for &'a str {
     fn from(value: PrimitiveType) -> Self {
+        use PrimitiveType::*;
         match value {
-            PrimitiveType::StringPropertyType => "String",
-            PrimitiveType::BooleanPropertyType => "Boolean",
-            PrimitiveType::LongPropertyType => "Long",
-            PrimitiveType::DoublePropertyType => "Double",
-            PrimitiveType::IntegerPropertyType => "Integer",
-            PrimitiveType::DateTimePropertyType => "DateTime",
-            _ => "",
+            StringPropertyType => "String",
+            BooleanPropertyType => "Boolean",
+            LongPropertyType => "Long",
+            DoublePropertyType => "Double",
+            IntegerPropertyType => "Integer",
+            DateTimePropertyType => "DateTime",
         }
     }
 }
 
-/// Parses provided primitive type then returns the name of the defined type
+enum AnnotatedType {
+    Single,
+    Array,
+}
+
+/// Parses provided primitive type then returns (the name of the defined type, is array) tuple
 pub fn primitive_property<'a>(
     primitive_type: PrimitiveType,
-) -> impl Fn(&'a str) -> CResult<&'a str, &'a str> {
+) -> impl Fn(&'a str) -> CResult<&'a str, (&'a str, bool)> {
     move |input: &'a str| {
         let type_tag: &'a str = primitive_type.into();
+        let single_type = tuple((space0, char('o'), space0, tag(type_tag), space0))
+            .map(|_| AnnotatedType::Single);
+        let array_type = tuple((
+            space0,
+            char('o'),
+            space0,
+            tag(type_tag),
+            space0,
+            char('['),
+            space0,
+            char(']'),
+            space0,
+        ))
+        .map(|_| AnnotatedType::Array);
+
         context(
             "PrimitiveProperty",
-            preceded(
-                tuple((space0, char('o'), space0, tag(type_tag), space0)),
-                token,
+            tuple((alt((array_type, single_type)), token)).map(
+                |(annotated, name)| match annotated {
+                    AnnotatedType::Array => (name, true),
+                    AnnotatedType::Single => (name, false),
+                },
             ),
         )(input)
     }
