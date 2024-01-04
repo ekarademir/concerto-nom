@@ -1,3 +1,2 @@
 - `parser::property::meta_property` => array parser
-- `parser::property::meta_property` => optional parser
 - `parser::property` => imported type property

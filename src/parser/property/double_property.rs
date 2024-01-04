@@ -19,6 +19,7 @@ pub struct DoubleProperty {
     pub name: String,
     pub default_value: Option<f64>,
     pub domain_validator: Option<DoubleDomainValidator>,
+    pub is_optional: bool,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -38,11 +39,12 @@ impl From<Ranged<f64>> for DoubleDomainValidator {
 enum DoubleMetaProperty {
     Default(f64),
     Domain(DoubleDomainValidator),
+    Optional,
 }
 
 /// Parses a primitive DoubleProperty with its default meta properties.
 /// If a meta property is defined twice, second one will overwrite the first.
-/// Meta property parser will only run two times.
+/// Meta property parser will only run three times.
 pub fn double_property<'a>(input: &'a str) -> CResult<&'a str, DoubleProperty> {
     let domain = context(
         "DoubleDomainValidator",
@@ -50,15 +52,16 @@ pub fn double_property<'a>(input: &'a str) -> CResult<&'a str, DoubleProperty> {
     )
     .map(|x| DoubleMetaProperty::Domain(x));
     let default = preceded(space1, double_default_value).map(|x| DoubleMetaProperty::Default(x));
+    let optional = preceded(space1, keywords::optional).map(|_| DoubleMetaProperty::Optional);
 
-    let property_meta = context("PropertyMeta", alt((domain, default)));
+    let property_meta = context("PropertyMeta", alt((domain, default, optional)));
 
     context(
         "DoubleProperty",
         primitive_property(PrimitiveType::DoublePropertyType)
             .and(fold_many_m_n(
                 0,
-                2,
+                3,
                 property_meta,
                 Vec::new,
                 |mut acc: Vec<_>, meta_prop| {
@@ -71,6 +74,7 @@ pub fn double_property<'a>(input: &'a str) -> CResult<&'a str, DoubleProperty> {
                     name: property_name.to_string(),
                     default_value: None,
                     domain_validator: None,
+                    is_optional: false,
                 };
 
                 for meta_prop in meta_props {
@@ -78,6 +82,7 @@ pub fn double_property<'a>(input: &'a str) -> CResult<&'a str, DoubleProperty> {
                     match meta_prop {
                         Default(x) => prop.default_value = Some(x),
                         Domain(x) => prop.domain_validator = Some(x),
+                        Optional => prop.is_optional = true,
                     }
                 }
 
@@ -114,10 +119,25 @@ mod test {
                 super::DoubleProperty {
                     name: String::from("foo"),
                     default_value: None,
-                    domain_validator: None
+                    domain_validator: None,
+                    is_optional: false,
                 }
             )),
             "Should parse double with no meta properties"
+        );
+
+        assert_eq!(
+            super::double_property("o Double foo optional"),
+            Ok((
+                "",
+                super::DoubleProperty {
+                    name: String::from("foo"),
+                    default_value: None,
+                    domain_validator: None,
+                    is_optional: true,
+                }
+            )),
+            "Should parse double with optional flag"
         );
 
         assert_eq!(
@@ -127,7 +147,8 @@ mod test {
                 super::DoubleProperty {
                     name: String::from("baz"),
                     default_value: Some(42.0),
-                    domain_validator: None
+                    domain_validator: None,
+                    is_optional: false,
                 }
             )),
             "Should parse double with default value only"
@@ -143,7 +164,8 @@ mod test {
                     domain_validator: Some(super::DoubleDomainValidator {
                         lower: Some(0.0),
                         upper: Some(10.0)
-                    })
+                    }),
+                    is_optional: false,
                 }
             )),
             "Should parse double with range only"
@@ -159,10 +181,30 @@ mod test {
                     domain_validator: Some(super::DoubleDomainValidator {
                         lower: None,
                         upper: Some(100.4)
-                    })
+                    }),
+                    is_optional: false,
                 }
             )),
             "Should parse double with both default and range"
+        );
+
+        assert_eq!(
+            super::double_property(
+                "o Double baz \tdefault  =   -42.0e3 optional\t\t  range=[,100.4]"
+            ),
+            Ok((
+                "",
+                super::DoubleProperty {
+                    name: String::from("baz"),
+                    default_value: Some(-42.0e3),
+                    domain_validator: Some(super::DoubleDomainValidator {
+                        lower: None,
+                        upper: Some(100.4)
+                    }),
+                    is_optional: true,
+                }
+            )),
+            "Should parse double with both default and range and with optional flag"
         );
 
         assert_eq!(
@@ -175,7 +217,8 @@ mod test {
                     domain_validator: Some(super::DoubleDomainValidator {
                         lower: None,
                         upper: Some(100.0)
-                    })
+                    }),
+                    is_optional: false,
                 }
             )),
             "Should parse double with both default and range in a different order"

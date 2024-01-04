@@ -3,6 +3,7 @@ use nom::{
     character::complete::{char, space0, space1},
     combinator::into,
     error::context,
+    multi::fold_many_m_n,
     sequence::{preceded, tuple},
     Parser,
 };
@@ -17,31 +18,50 @@ use crate::parser::{
 pub struct BooleanProperty {
     pub name: String,
     pub default_value: Option<bool>,
+    pub is_optional: bool,
+}
+
+enum BooleanMetaProperty {
+    Default(bool),
+    Optional,
 }
 
 pub fn boolean_property<'a>(input: &'a str) -> CResult<&'a str, BooleanProperty> {
-    let boolean_with_default = context(
-        "BooleanWithDefault",
-        primitive_property(PrimitiveType::BooleanPropertyType)
-            .and(preceded(space1, boolean_default_value))
-            .map(|(property_name, default_value)| BooleanProperty {
-                default_value: Some(default_value),
-                name: property_name.to_string(),
-            }),
-    );
-    let boolean_without_default = context(
-        "BooleanWithoutDefault",
-        primitive_property(PrimitiveType::BooleanPropertyType).map(|property_name| {
-            BooleanProperty {
-                default_value: None,
-                name: property_name.to_string(),
-            }
-        }),
-    );
+    let default = preceded(space1, boolean_default_value).map(|x| BooleanMetaProperty::Default(x));
+    let optional = preceded(space1, keywords::optional).map(|_| BooleanMetaProperty::Optional);
+
+    let property_meta = context("PropertyMeta", alt((default, optional)));
 
     context(
         "BooleanProperty",
-        alt((boolean_with_default, boolean_without_default)),
+        primitive_property(PrimitiveType::BooleanPropertyType)
+            .and(fold_many_m_n(
+                0,
+                2,
+                property_meta,
+                Vec::new,
+                |mut acc: Vec<_>, meta_prop| {
+                    acc.push(meta_prop);
+                    acc
+                },
+            ))
+            .map(|(property_name, meta_props)| {
+                let mut prop = BooleanProperty {
+                    name: property_name.to_string(),
+                    default_value: None,
+                    is_optional: false,
+                };
+
+                for meta_prop in meta_props {
+                    use BooleanMetaProperty::*;
+                    match meta_prop {
+                        Default(x) => prop.default_value = Some(x),
+                        Optional => prop.is_optional = true,
+                    }
+                }
+
+                prop
+            }),
     )(input)
 }
 
@@ -66,6 +86,7 @@ mod test {
                 super::BooleanProperty {
                     name: String::from("foo"),
                     default_value: None,
+                    is_optional: false,
                 }
             )),
             "Should parse boolean with no meta properties"
@@ -78,6 +99,7 @@ mod test {
                 super::BooleanProperty {
                     name: String::from("baz"),
                     default_value: Some(false),
+                    is_optional: false,
                 }
             )),
             "Should parse boolean with false default value"
@@ -90,9 +112,23 @@ mod test {
                 super::BooleanProperty {
                     name: String::from("baz"),
                     default_value: Some(true),
+                    is_optional: false,
                 }
             )),
             "Should parse boolean with true default value"
+        );
+
+        assert_eq!(
+            super::boolean_property("o Boolean baz optional default=true"),
+            Ok((
+                "",
+                super::BooleanProperty {
+                    name: String::from("baz"),
+                    default_value: Some(true),
+                    is_optional: true,
+                }
+            )),
+            "Should parse boolean with optional flag"
         );
 
         assert_eq!(
@@ -102,6 +138,7 @@ mod test {
                 super::BooleanProperty {
                     name: String::from("baz"),
                     default_value: None,
+                    is_optional: false,
                 }
             )),
             "Should not parse boolean with wrong default value"

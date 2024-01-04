@@ -24,6 +24,7 @@ pub struct StringProperty {
     pub default_value: Option<String>,
     pub regex_validator: Option<StringRegexValidator>,
     pub length_validator: Option<StringLengthValidator>,
+    pub is_optional: bool,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -50,11 +51,12 @@ enum StringMetaProperty {
     Regex(StringRegexValidator),
     Default(String),
     Length(StringLengthValidator),
+    Optional,
 }
 
 /// Parses a primitive StringProperty with its default meta properties.
 /// If a meta property is defined twice, second one will overwrite the first.
-/// Meta property parser will only run three times.
+/// Meta property parser will only run four times.
 pub fn string_property<'a>(input: &'a str) -> CResult<&'a str, StringProperty> {
     let length = context(
         "StringLengthValidator",
@@ -63,15 +65,16 @@ pub fn string_property<'a>(input: &'a str) -> CResult<&'a str, StringProperty> {
     .map(|x| StringMetaProperty::Length(x));
     let regex = preceded(space1, string_regex_validator).map(|x| StringMetaProperty::Regex(x));
     let default = preceded(space1, string_default_value).map(|x| StringMetaProperty::Default(x));
+    let optional = preceded(space1, keywords::optional).map(|_| StringMetaProperty::Optional);
 
-    let property_meta = context("PropertyMeta", alt((length, regex, default)));
+    let property_meta = context("PropertyMeta", alt((length, regex, default, optional)));
 
     context(
         "StringProperty",
         primitive_property(PrimitiveType::StringPropertyType)
             .and(fold_many_m_n(
                 0,
-                3,
+                4,
                 property_meta,
                 Vec::new,
                 |mut acc: Vec<_>, meta_prop| {
@@ -85,6 +88,7 @@ pub fn string_property<'a>(input: &'a str) -> CResult<&'a str, StringProperty> {
                     default_value: None,
                     regex_validator: None,
                     length_validator: None,
+                    is_optional: false,
                 };
 
                 for meta_prop in meta_props {
@@ -93,6 +97,7 @@ pub fn string_property<'a>(input: &'a str) -> CResult<&'a str, StringProperty> {
                         Default(x) => prop.default_value = Some(x),
                         Regex(x) => prop.regex_validator = Some(x),
                         Length(x) => prop.length_validator = Some(x),
+                        Optional => prop.is_optional = true,
                     }
                 }
 
@@ -144,10 +149,26 @@ mod test {
                     name: String::from("foo"),
                     default_value: None,
                     regex_validator: None,
-                    length_validator: None
+                    length_validator: None,
+                    is_optional: false,
                 }
             )),
             "Should parse string with no meta properties"
+        );
+
+        assert_eq!(
+            super::string_property("o String foo optional"),
+            Ok((
+                "",
+                super::StringProperty {
+                    name: String::from("foo"),
+                    default_value: None,
+                    regex_validator: None,
+                    length_validator: None,
+                    is_optional: true,
+                }
+            )),
+            "Should parse string with optional flag"
         );
 
         assert_eq!(
@@ -158,7 +179,8 @@ mod test {
                     name: String::from("baz"),
                     default_value: Some(String::from("Hello World")),
                     regex_validator: None,
-                    length_validator: None
+                    length_validator: None,
+                    is_optional: false,
                 }
             )),
             "Should parse string with default value only"
@@ -175,7 +197,8 @@ mod test {
                         pattern: String::from("abc.*"),
                         flags: String::from("")
                     }),
-                    length_validator: None
+                    length_validator: None,
+                    is_optional: false,
                 }
             )),
             "Should parse string with regex value only"
@@ -192,7 +215,8 @@ mod test {
                     length_validator: Some(super::StringLengthValidator {
                         min_length: Some(0),
                         max_length: Some(10)
-                    })
+                    }),
+                    is_optional: false,
                 }
             )),
             "Should parse string with length only"
@@ -214,7 +238,8 @@ mod test {
                     length_validator: Some(super::StringLengthValidator {
                         min_length: None,
                         max_length: Some(100)
-                    })
+                    }),
+                    is_optional: false,
                 }
             )),
             "Should parse string with both default and regex and length"
@@ -236,7 +261,8 @@ mod test {
                     length_validator: Some(super::StringLengthValidator {
                         min_length: None,
                         max_length: Some(100)
-                    })
+                    }),
+                    is_optional: false,
                 }
             )),
             "Should parse string with both default and regex and length in a different order"

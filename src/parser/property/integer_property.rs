@@ -19,6 +19,7 @@ pub struct IntegerProperty {
     pub name: String,
     pub default_value: Option<i32>,
     pub domain_validator: Option<IntegerDomainValidator>,
+    pub is_optional: bool,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -38,11 +39,12 @@ impl From<Ranged<i32>> for IntegerDomainValidator {
 enum IntegerMetaProperty {
     Default(i32),
     Domain(IntegerDomainValidator),
+    Optional,
 }
 
 /// Parses a primitive IntegerProperty with its default meta properties.
 /// If a meta property is defined twice, second one will overwrite the first.
-/// Meta property parser will only run two times.
+/// Meta property parser will only run three times.
 pub fn integer_property<'a>(input: &'a str) -> CResult<&'a str, IntegerProperty> {
     let domain = context(
         "IntegerDomainValidator",
@@ -50,15 +52,16 @@ pub fn integer_property<'a>(input: &'a str) -> CResult<&'a str, IntegerProperty>
     )
     .map(|x| IntegerMetaProperty::Domain(x));
     let default = preceded(space1, integer_default_value).map(|x| IntegerMetaProperty::Default(x));
+    let optional = preceded(space1, keywords::optional).map(|_| IntegerMetaProperty::Optional);
 
-    let property_meta = context("PropertyMeta", alt((domain, default)));
+    let property_meta = context("PropertyMeta", alt((domain, default, optional)));
 
     context(
         "IntegerProperty",
         primitive_property(PrimitiveType::IntegerPropertyType)
             .and(fold_many_m_n(
                 0,
-                2,
+                3,
                 property_meta,
                 Vec::new,
                 |mut acc: Vec<_>, meta_prop| {
@@ -71,6 +74,7 @@ pub fn integer_property<'a>(input: &'a str) -> CResult<&'a str, IntegerProperty>
                     name: property_name.to_string(),
                     default_value: None,
                     domain_validator: None,
+                    is_optional: false,
                 };
 
                 for meta_prop in meta_props {
@@ -78,6 +82,7 @@ pub fn integer_property<'a>(input: &'a str) -> CResult<&'a str, IntegerProperty>
                     match meta_prop {
                         Default(x) => prop.default_value = Some(x),
                         Domain(x) => prop.domain_validator = Some(x),
+                        Optional => prop.is_optional = true,
                     }
                 }
 
@@ -114,7 +119,8 @@ mod test {
                 super::IntegerProperty {
                     name: String::from("foo"),
                     default_value: None,
-                    domain_validator: None
+                    domain_validator: None,
+                    is_optional: false,
                 }
             )),
             "Should parse integer with no meta properties"
@@ -127,7 +133,8 @@ mod test {
                 super::IntegerProperty {
                     name: String::from("baz"),
                     default_value: Some(42),
-                    domain_validator: None
+                    domain_validator: None,
+                    is_optional: false,
                 }
             )),
             "Should parse integer with default value only"
@@ -143,10 +150,28 @@ mod test {
                     domain_validator: Some(super::IntegerDomainValidator {
                         lower: Some(0),
                         upper: Some(10)
-                    })
+                    }),
+                    is_optional: false,
                 }
             )),
             "Should parse integer with range only"
+        );
+
+        assert_eq!(
+            super::integer_property("o Integer baz    range   = [ 0 , 10  ] optional"),
+            Ok((
+                "",
+                super::IntegerProperty {
+                    name: String::from("baz"),
+                    default_value: None,
+                    domain_validator: Some(super::IntegerDomainValidator {
+                        lower: Some(0),
+                        upper: Some(10)
+                    }),
+                    is_optional: true,
+                }
+            )),
+            "Should parse integer with optional flag"
         );
 
         assert_eq!(
@@ -159,7 +184,8 @@ mod test {
                     domain_validator: Some(super::IntegerDomainValidator {
                         lower: None,
                         upper: Some(100)
-                    })
+                    }),
+                    is_optional: false,
                 }
             )),
             "Should parse integer with both default and range"
@@ -175,7 +201,8 @@ mod test {
                     domain_validator: Some(super::IntegerDomainValidator {
                         lower: None,
                         upper: Some(100)
-                    })
+                    }),
+                    is_optional: false,
                 }
             )),
             "Should parse integer with both default and range in a different order"

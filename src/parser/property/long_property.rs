@@ -19,6 +19,7 @@ pub struct LongProperty {
     pub name: String,
     pub default_value: Option<i64>,
     pub domain_validator: Option<LongDomainValidator>,
+    is_optional: bool,
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -38,11 +39,12 @@ impl From<Ranged<i64>> for LongDomainValidator {
 enum LongMetaProperty {
     Default(i64),
     Domain(LongDomainValidator),
+    Optional,
 }
 
 /// Parses a primitive LongProperty with its default meta properties.
 /// If a meta property is defined twice, second one will overwrite the first.
-/// Meta property parser will only run two times.
+/// Meta property parser will only run three times.
 pub fn long_property<'a>(input: &'a str) -> CResult<&'a str, LongProperty> {
     let domain = context(
         "LongDomainValidator",
@@ -50,15 +52,16 @@ pub fn long_property<'a>(input: &'a str) -> CResult<&'a str, LongProperty> {
     )
     .map(|x| LongMetaProperty::Domain(x));
     let default = preceded(space1, long_default_value).map(|x| LongMetaProperty::Default(x));
+    let optional = preceded(space1, keywords::optional).map(|_| LongMetaProperty::Optional);
 
-    let property_meta = context("PropertyMeta", alt((domain, default)));
+    let property_meta = context("PropertyMeta", alt((domain, default, optional)));
 
     context(
         "LongProperty",
         primitive_property(PrimitiveType::LongPropertyType)
             .and(fold_many_m_n(
                 0,
-                2,
+                3,
                 property_meta,
                 Vec::new,
                 |mut acc: Vec<_>, meta_prop| {
@@ -71,6 +74,7 @@ pub fn long_property<'a>(input: &'a str) -> CResult<&'a str, LongProperty> {
                     name: property_name.to_string(),
                     default_value: None,
                     domain_validator: None,
+                    is_optional: false,
                 };
 
                 for meta_prop in meta_props {
@@ -78,6 +82,7 @@ pub fn long_property<'a>(input: &'a str) -> CResult<&'a str, LongProperty> {
                     match meta_prop {
                         Default(x) => prop.default_value = Some(x),
                         Domain(x) => prop.domain_validator = Some(x),
+                        Optional => prop.is_optional = true,
                     }
                 }
 
@@ -114,7 +119,8 @@ mod test {
                 super::LongProperty {
                     name: String::from("foo"),
                     default_value: None,
-                    domain_validator: None
+                    domain_validator: None,
+                    is_optional: false,
                 }
             )),
             "Should parse long with no meta properties"
@@ -127,10 +133,25 @@ mod test {
                 super::LongProperty {
                     name: String::from("baz"),
                     default_value: Some(42),
-                    domain_validator: None
+                    domain_validator: None,
+                    is_optional: false,
                 }
             )),
             "Should parse long with default value only"
+        );
+
+        assert_eq!(
+            super::long_property("o Long baz optional default=42"),
+            Ok((
+                "",
+                super::LongProperty {
+                    name: String::from("baz"),
+                    default_value: Some(42),
+                    domain_validator: None,
+                    is_optional: true,
+                }
+            )),
+            "Should parse long with optional flag"
         );
 
         assert_eq!(
@@ -140,10 +161,11 @@ mod test {
                 super::LongProperty {
                     name: String::from("baz"),
                     default_value: None,
-                    domain_validator: None
+                    domain_validator: None,
+                    is_optional: false,
                 }
             )),
-            "Should not parse long with wring default value"
+            "Should not parse long with wrong default value"
         );
 
         assert_eq!(
@@ -156,7 +178,8 @@ mod test {
                     domain_validator: Some(super::LongDomainValidator {
                         lower: Some(0),
                         upper: Some(10)
-                    })
+                    }),
+                    is_optional: false,
                 }
             )),
             "Should parse long with range only"
@@ -172,7 +195,8 @@ mod test {
                     domain_validator: Some(super::LongDomainValidator {
                         lower: None,
                         upper: Some(100)
-                    })
+                    }),
+                    is_optional: false,
                 }
             )),
             "Should parse long with both default and range"
@@ -185,7 +209,8 @@ mod test {
                 super::LongProperty {
                     name: String::from("baz"),
                     default_value: None,
-                    domain_validator: None
+                    domain_validator: None,
+                    is_optional: false,
                 }
             )),
             "Should not parse long with wrong default value even though other meta is correct"
@@ -201,7 +226,8 @@ mod test {
                     domain_validator: Some(super::LongDomainValidator {
                         lower: None,
                         upper: Some(100)
-                    })
+                    }),
+                    is_optional: false,
                 }
             )),
             "Should parse long with both default and range in a different order"

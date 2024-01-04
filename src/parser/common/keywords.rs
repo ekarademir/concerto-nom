@@ -21,3 +21,7 @@ pub fn regex<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
 pub fn namespace<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
     context("NamespaceKeyword", tag("namespace"))(input)
 }
+
+pub fn optional<'a>(input: &'a str) -> CResult<&'a str, &'a str> {
+    context("OptionalKeyword", tag("optional"))(input)
+}
