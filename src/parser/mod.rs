@@ -9,11 +9,12 @@ use nom::{
     branch::alt, character::complete::multispace0, error::context, multi::fold_many0,
     sequence::delimited, IResult, Parser,
 };
+use serde_derive::Serialize;
 
 /// Concerto parse result type
 pub type CResult<I, O> = IResult<I, O, error::CError<I>>;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct Model {
     pub namespace: namespace::Namespace,
     pub declarations: Vec<declaration::Declaration>,

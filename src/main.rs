@@ -1,7 +1,7 @@
 pub mod parser;
 pub mod serialize;
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cto = "
     namespace com.example.foo@1.3.5-pre
 
@@ -18,7 +18,9 @@ fn main() {
     }
 
     ";
-    let parsed = parser::model(cto);
+    let (_, parsed) = parser::model(cto)?;
 
-    println!("{:?}", parsed);
+    println!("{}", serialize::print(&parsed)?);
+
+    Ok(())
 }

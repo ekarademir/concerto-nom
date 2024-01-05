@@ -1,3 +1,5 @@
+use std::fmt::format;
+
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_while},
@@ -18,6 +20,12 @@ pub struct VersionNumber {
     major: u128,
     minor: u128,
     patch: u128,
+}
+
+impl From<&VersionNumber> for String {
+    fn from(value: &VersionNumber) -> Self {
+        format!("{}.{}.{}", value.major, value.minor, value.patch)
+    }
 }
 
 impl From<(u128,)> for VersionNumber {
@@ -56,6 +64,15 @@ impl From<(u128, u128, u128)> for VersionNumber {
 pub enum SemanticVersion {
     Version(VersionNumber),
     VersionWithRelease(VersionNumber, String),
+}
+
+impl From<&SemanticVersion> for String {
+    fn from(value: &SemanticVersion) -> Self {
+        match value {
+            SemanticVersion::Version(v) => format!("{}", String::from(v)),
+            SemanticVersion::VersionWithRelease(v, r) => format!("{}-{}", String::from(v), r),
+        }
+    }
 }
 
 fn major_only_version<'a>(input: &'a str) -> CResult<&'a str, VersionNumber> {

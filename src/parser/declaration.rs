@@ -7,19 +7,21 @@ use nom::{
     sequence::{delimited, tuple},
     Parser,
 };
+use serde_derive::Serialize;
 
 use crate::parser::{
     common::{keywords, token},
     property, CResult,
 };
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct Declaration {
     pub name: String,
     pub properties: Vec<Property>,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
+#[serde(untagged)]
 pub enum Property {
     Boolean(property::boolean_property::BooleanProperty),
     Integer(property::integer_property::IntegerProperty),
@@ -27,7 +29,7 @@ pub enum Property {
     Double(property::double_property::DoubleProperty),
     DateTime(property::datetime_property::DateTimeProperty),
     String(property::string_property::StringProperty),
-    Imported(property::Property),
+    Concept(property::Property),
 }
 
 impl From<property::boolean_property::BooleanProperty> for Property {
@@ -68,7 +70,7 @@ impl From<property::string_property::StringProperty> for Property {
 
 impl From<property::Property> for Property {
     fn from(value: property::Property) -> Self {
-        Self::Imported(value)
+        Self::Concept(value)
     }
 }
 
@@ -216,7 +218,7 @@ mod test {
                                 default_value: None,
                             }
                         ),
-                        super::Property::Imported(crate::parser::property::Property {
+                        super::Property::Concept(crate::parser::property::Property {
                             name: String::from("address"),
                             is_array: false,
                             is_optional: false,

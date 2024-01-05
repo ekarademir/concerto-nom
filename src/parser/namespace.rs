@@ -19,6 +19,16 @@ pub struct Namespace {
     version: SemanticVersion,
 }
 
+impl serde::Serialize for Namespace {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let s = format!("{}@{}", self.name, String::from(&self.version));
+        serializer.serialize_str(&s)
+    }
+}
+
 impl From<(String, SemanticVersion)> for Namespace {
     fn from(value: (String, SemanticVersion)) -> Self {
         Namespace {
