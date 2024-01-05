@@ -7,6 +7,7 @@ use nom::{
     sequence::{preceded, tuple},
     Parser,
 };
+use serde_derive::Serialize;
 
 use crate::parser::{
     common::{keywords, numeric::double_value},
@@ -14,12 +15,20 @@ use crate::parser::{
     CResult,
 };
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct DoubleProperty {
+    #[serde(rename = "$class")]
+    pub class: String,
     pub name: String,
+    #[serde(rename = "isOptional")]
     pub is_optional: bool,
+    #[serde(rename = "isArray")]
     pub is_array: bool,
+    #[serde(rename = "default")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub default_value: Option<f64>,
+    #[serde(rename = "range")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub domain_validator: Option<DoubleDomainValidator>,
 }
 
@@ -27,6 +36,26 @@ pub struct DoubleProperty {
 pub struct DoubleDomainValidator {
     pub lower: Option<f64>,
     pub upper: Option<f64>,
+}
+
+impl serde::Serialize for DoubleDomainValidator {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&String::from(self))
+    }
+}
+
+impl From<&DoubleDomainValidator> for String {
+    fn from(value: &DoubleDomainValidator) -> Self {
+        match (value.lower, value.upper) {
+            (None, None) => Self::from(""),
+            (Some(lower), Some(upper)) => format!("[{}, {}]", lower, upper),
+            (None, Some(upper)) => format!("[, {}]", upper),
+            (Some(lower), None) => format!("[{},]", lower),
+        }
+    }
 }
 
 impl From<Ranged<f64>> for DoubleDomainValidator {
@@ -72,6 +101,7 @@ pub fn double_property<'a>(input: &'a str) -> CResult<&'a str, DoubleProperty> {
             ))
             .map(|((property_name, is_array), meta_props)| {
                 let mut prop = DoubleProperty {
+                    class: String::from("DoubleProperty"),
                     name: property_name.to_string(),
                     default_value: None,
                     domain_validator: None,
@@ -119,6 +149,7 @@ mod test {
             Ok((
                 "",
                 super::DoubleProperty {
+                    class: String::from("DoubleProperty"),
                     name: String::from("foo"),
                     default_value: None,
                     domain_validator: None,
@@ -134,6 +165,7 @@ mod test {
             Ok((
                 "",
                 super::DoubleProperty {
+                    class: String::from("DoubleProperty"),
                     name: String::from("foo"),
                     default_value: None,
                     domain_validator: None,
@@ -149,6 +181,7 @@ mod test {
             Ok((
                 "",
                 super::DoubleProperty {
+                    class: String::from("DoubleProperty"),
                     name: String::from("baz"),
                     default_value: Some(42.0),
                     domain_validator: None,
@@ -164,6 +197,7 @@ mod test {
             Ok((
                 "",
                 super::DoubleProperty {
+                    class: String::from("DoubleProperty"),
                     name: String::from("baz"),
                     default_value: None,
                     domain_validator: Some(super::DoubleDomainValidator {
@@ -182,6 +216,7 @@ mod test {
             Ok((
                 "",
                 super::DoubleProperty {
+                    class: String::from("DoubleProperty"),
                     name: String::from("baz"),
                     default_value: Some(-42.0e3),
                     domain_validator: Some(super::DoubleDomainValidator {
@@ -202,6 +237,7 @@ mod test {
             Ok((
                 "",
                 super::DoubleProperty {
+                    class: String::from("DoubleProperty"),
                     name: String::from("baz"),
                     default_value: Some(-42.0e3),
                     domain_validator: Some(super::DoubleDomainValidator {
@@ -220,6 +256,7 @@ mod test {
             Ok((
                 "",
                 super::DoubleProperty {
+                    class: String::from("DoubleProperty"),
                     name: String::from("baz"),
                     default_value: Some(42.5e-3),
                     domain_validator: Some(super::DoubleDomainValidator {
@@ -238,6 +275,7 @@ mod test {
             Ok((
                 "",
                 super::DoubleProperty {
+                    class: String::from("DoubleProperty"),
                     name: String::from("baz"),
                     default_value: Some(42.5e-3),
                     domain_validator: Some(super::DoubleDomainValidator {
@@ -250,5 +288,32 @@ mod test {
             )),
             "Should parse double with array flag"
         );
+    }
+
+    #[test]
+    fn test_serialize() {
+        let a = super::DoubleProperty {
+            class: String::from("DoubleProperty"),
+            name: String::from("aProperty"),
+            is_array: false,
+            is_optional: true,
+            default_value: Some(3.14),
+            domain_validator: Some(super::DoubleDomainValidator {
+                lower: Some(0.01),
+                upper: None,
+            }),
+        };
+
+        assert_eq!(
+            serde_json::json!({
+              "$class": "DoubleProperty",
+              "name": "aProperty",
+              "isArray": false,
+              "isOptional": true,
+              "default": 3.14,
+              "range": "[0.01,]"
+            }),
+            serde_json::to_value(a).unwrap(),
+        )
     }
 }

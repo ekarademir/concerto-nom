@@ -7,6 +7,7 @@ use nom::{
     sequence::{preceded, tuple},
     Parser,
 };
+use serde_derive::Serialize;
 
 use crate::parser::{
     common::{keywords, numeric::integer_value},
@@ -14,12 +15,20 @@ use crate::parser::{
     CResult,
 };
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct IntegerProperty {
+    #[serde(rename = "$class")]
+    pub class: String,
     pub name: String,
+    #[serde(rename = "isOptional")]
     pub is_optional: bool,
+    #[serde(rename = "isArray")]
     pub is_array: bool,
+    #[serde(rename = "default")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub default_value: Option<i32>,
+    #[serde(rename = "range")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub domain_validator: Option<IntegerDomainValidator>,
 }
 
@@ -27,6 +36,26 @@ pub struct IntegerProperty {
 pub struct IntegerDomainValidator {
     pub lower: Option<i32>,
     pub upper: Option<i32>,
+}
+
+impl serde::Serialize for IntegerDomainValidator {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&String::from(self))
+    }
+}
+
+impl From<&IntegerDomainValidator> for String {
+    fn from(value: &IntegerDomainValidator) -> Self {
+        match (value.lower, value.upper) {
+            (None, None) => Self::from(""),
+            (Some(lower), Some(upper)) => format!("[{}, {}]", lower, upper),
+            (None, Some(upper)) => format!("[, {}]", upper),
+            (Some(lower), None) => format!("[{},]", lower),
+        }
+    }
 }
 
 impl From<Ranged<i32>> for IntegerDomainValidator {
@@ -72,6 +101,7 @@ pub fn integer_property<'a>(input: &'a str) -> CResult<&'a str, IntegerProperty>
             ))
             .map(|((property_name, is_array), meta_props)| {
                 let mut prop = IntegerProperty {
+                    class: String::from("IntegerProperty"),
                     name: property_name.to_string(),
                     default_value: None,
                     domain_validator: None,
@@ -119,6 +149,7 @@ mod test {
             Ok((
                 "",
                 super::IntegerProperty {
+                    class: String::from("IntegerProperty"),
                     name: String::from("foo"),
                     default_value: None,
                     domain_validator: None,
@@ -134,6 +165,7 @@ mod test {
             Ok((
                 "",
                 super::IntegerProperty {
+                    class: String::from("IntegerProperty"),
                     name: String::from("foo"),
                     default_value: None,
                     domain_validator: None,
@@ -149,6 +181,7 @@ mod test {
             Ok((
                 "",
                 super::IntegerProperty {
+                    class: String::from("IntegerProperty"),
                     name: String::from("baz"),
                     default_value: Some(42),
                     domain_validator: None,
@@ -164,6 +197,7 @@ mod test {
             Ok((
                 "",
                 super::IntegerProperty {
+                    class: String::from("IntegerProperty"),
                     name: String::from("baz"),
                     default_value: None,
                     domain_validator: Some(super::IntegerDomainValidator {
@@ -182,6 +216,7 @@ mod test {
             Ok((
                 "",
                 super::IntegerProperty {
+                    class: String::from("IntegerProperty"),
                     name: String::from("baz"),
                     default_value: None,
                     domain_validator: Some(super::IntegerDomainValidator {
@@ -200,6 +235,7 @@ mod test {
             Ok((
                 "",
                 super::IntegerProperty {
+                    class: String::from("IntegerProperty"),
                     name: String::from("baz"),
                     default_value: Some(-42),
                     domain_validator: Some(super::IntegerDomainValidator {
@@ -218,6 +254,7 @@ mod test {
             Ok((
                 "",
                 super::IntegerProperty {
+                    class: String::from("IntegerProperty"),
                     name: String::from("baz"),
                     default_value: Some(42),
                     domain_validator: Some(super::IntegerDomainValidator {

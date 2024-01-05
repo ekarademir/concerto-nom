@@ -7,6 +7,7 @@ use nom::{
     sequence::{preceded, tuple},
     Parser,
 };
+use serde_derive::Serialize;
 
 use crate::parser::{
     common::{boolean_value, keywords},
@@ -14,11 +15,17 @@ use crate::parser::{
     CResult,
 };
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct BooleanProperty {
+    #[serde(rename = "$class")]
+    pub class: String,
     pub name: String,
+    #[serde(rename = "isOptional")]
     pub is_optional: bool,
+    #[serde(rename = "isArray")]
     pub is_array: bool,
+    #[serde(rename = "default")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub default_value: Option<bool>,
 }
 
@@ -48,6 +55,7 @@ pub fn boolean_property<'a>(input: &'a str) -> CResult<&'a str, BooleanProperty>
             ))
             .map(|((property_name, is_array), meta_props)| {
                 let mut prop = BooleanProperty {
+                    class: String::from("BooleanProperty"),
                     name: property_name.to_string(),
                     default_value: None,
                     is_optional: false,
@@ -79,6 +87,50 @@ pub fn boolean_default_value<'a>(input: &'a str) -> CResult<&'a str, bool> {
 
 #[cfg(test)]
 mod test {
+
+    #[test]
+    fn test_serialize_without_default() {
+        let a = super::BooleanProperty {
+            class: String::from("BooleanProperty"),
+            name: String::from("aProperty"),
+            is_array: false,
+            is_optional: true,
+            default_value: None,
+        };
+
+        assert_eq!(
+            serde_json::json!({
+              "$class": "BooleanProperty",
+              "name": "aProperty",
+              "isArray": false,
+              "isOptional": true,
+            }),
+            serde_json::to_value(a).unwrap(),
+        )
+    }
+
+    #[test]
+    fn test_serialize_with_default() {
+        let a = super::BooleanProperty {
+            class: String::from("BooleanProperty"),
+            name: String::from("aProperty"),
+            is_array: false,
+            is_optional: true,
+            default_value: Some(false),
+        };
+
+        assert_eq!(
+            serde_json::json!({
+              "$class": "BooleanProperty",
+              "name": "aProperty",
+              "isArray": false,
+              "isOptional": true,
+              "default": false,
+            }),
+            serde_json::to_value(a).unwrap(),
+        )
+    }
+
     #[test]
     fn test_boolean_property() {
         assert_eq!(
@@ -87,6 +139,7 @@ mod test {
                 "",
                 super::BooleanProperty {
                     name: String::from("foo"),
+                    class: String::from("BooleanProperty"),
                     default_value: None,
                     is_optional: false,
                     is_array: false,
@@ -101,6 +154,7 @@ mod test {
                 "",
                 super::BooleanProperty {
                     name: String::from("foo"),
+                    class: String::from("BooleanProperty"),
                     default_value: None,
                     is_optional: false,
                     is_array: true,
@@ -115,6 +169,7 @@ mod test {
                 "",
                 super::BooleanProperty {
                     name: String::from("baz"),
+                    class: String::from("BooleanProperty"),
                     default_value: Some(false),
                     is_optional: false,
                     is_array: false,
@@ -129,6 +184,7 @@ mod test {
                 "",
                 super::BooleanProperty {
                     name: String::from("baz"),
+                    class: String::from("BooleanProperty"),
                     default_value: Some(true),
                     is_optional: false,
                     is_array: false,
@@ -143,6 +199,7 @@ mod test {
                 "",
                 super::BooleanProperty {
                     name: String::from("baz"),
+                    class: String::from("BooleanProperty"),
                     default_value: Some(true),
                     is_optional: true,
                     is_array: false,
@@ -157,6 +214,7 @@ mod test {
                 " default=42",
                 super::BooleanProperty {
                     name: String::from("baz"),
+                    class: String::from("BooleanProperty"),
                     default_value: None,
                     is_optional: false,
                     is_array: false,

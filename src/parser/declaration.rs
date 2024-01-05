@@ -167,6 +167,7 @@ mod test {
                     name: String::from("MyConcept"),
                     properties: vec![super::Property::String(
                         crate::parser::property::string_property::StringProperty {
+                            class: String::from("StringProperty"),
                             name: String::from("name"),
                             is_array: false,
                             is_optional: false,
@@ -197,6 +198,7 @@ mod test {
                     properties: vec![
                         super::Property::String(
                             crate::parser::property::string_property::StringProperty {
+                                class: String::from("StringProperty"),
                                 name: String::from("name"),
                                 is_array: false,
                                 is_optional: false,
@@ -208,6 +210,7 @@ mod test {
                         super::Property::Boolean(
                             crate::parser::property::boolean_property::BooleanProperty {
                                 name: String::from("applied"),
+                                class: String::from("BooleanProperty"),
                                 is_array: false,
                                 is_optional: false,
                                 default_value: None,

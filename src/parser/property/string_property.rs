@@ -7,6 +7,7 @@ use nom::{
     sequence::{preceded, tuple},
     Parser,
 };
+use serde_derive::Serialize;
 
 use crate::parser::{
     common::{
@@ -18,13 +19,23 @@ use crate::parser::{
     CResult,
 };
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct StringProperty {
+    #[serde(rename = "$class")]
+    pub class: String,
     pub name: String,
+    #[serde(rename = "isOptional")]
     pub is_optional: bool,
+    #[serde(rename = "isArray")]
     pub is_array: bool,
+    #[serde(rename = "default")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub default_value: Option<String>,
+    #[serde(rename = "regex")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub regex_validator: Option<StringRegexValidator>,
+    #[serde(rename = "length")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub length_validator: Option<StringLengthValidator>,
 }
 
@@ -34,10 +45,45 @@ pub struct StringRegexValidator {
     pub flags: String,
 }
 
+impl serde::Serialize for StringRegexValidator {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&String::from(self))
+    }
+}
+
+impl From<&StringRegexValidator> for String {
+    fn from(value: &StringRegexValidator) -> Self {
+        value.pattern.clone()
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub struct StringLengthValidator {
     pub min_length: Option<i32>,
     pub max_length: Option<i32>,
+}
+
+impl serde::Serialize for StringLengthValidator {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&String::from(self))
+    }
+}
+
+impl From<&StringLengthValidator> for String {
+    fn from(value: &StringLengthValidator) -> Self {
+        match (value.min_length, value.max_length) {
+            (None, None) => Self::from(""),
+            (Some(lower), Some(upper)) => format!("[{}, {}]", lower, upper),
+            (None, Some(upper)) => format!("[, {}]", upper),
+            (Some(lower), None) => format!("[{},]", lower),
+        }
+    }
 }
 
 impl From<Ranged<i32>> for StringLengthValidator {
@@ -85,6 +131,7 @@ pub fn string_property<'a>(input: &'a str) -> CResult<&'a str, StringProperty> {
             ))
             .map(|((property_name, is_array), meta_props)| {
                 let mut prop = StringProperty {
+                    class: String::from("StringProperty"),
                     name: property_name.to_string(),
                     default_value: None,
                     regex_validator: None,
@@ -148,6 +195,7 @@ mod test {
             Ok((
                 "",
                 super::StringProperty {
+                    class: String::from("StringProperty"),
                     name: String::from("foo"),
                     default_value: None,
                     regex_validator: None,
@@ -164,6 +212,7 @@ mod test {
             Ok((
                 "",
                 super::StringProperty {
+                    class: String::from("StringProperty"),
                     name: String::from("foo"),
                     default_value: None,
                     regex_validator: None,
@@ -180,6 +229,7 @@ mod test {
             Ok((
                 "",
                 super::StringProperty {
+                    class: String::from("StringProperty"),
                     name: String::from("baz"),
                     default_value: Some(String::from("Hello World")),
                     regex_validator: None,
@@ -196,6 +246,7 @@ mod test {
             Ok((
                 "",
                 super::StringProperty {
+                    class: String::from("StringProperty"),
                     name: String::from("baz"),
                     default_value: None,
                     regex_validator: Some(super::StringRegexValidator {
@@ -215,6 +266,7 @@ mod test {
             Ok((
                 "",
                 super::StringProperty {
+                    class: String::from("StringProperty"),
                     name: String::from("baz"),
                     default_value: None,
                     regex_validator: Some(super::StringRegexValidator {
@@ -234,6 +286,7 @@ mod test {
             Ok((
                 "",
                 super::StringProperty {
+                    class: String::from("StringProperty"),
                     name: String::from("baz"),
                     default_value: None,
                     regex_validator: None,
@@ -255,6 +308,7 @@ mod test {
             Ok((
                 "",
                 super::StringProperty {
+                    class: String::from("StringProperty"),
                     name: String::from("baz"),
                     default_value: Some(String::from("Hello World")),
                     regex_validator: Some(super::StringRegexValidator {
@@ -279,6 +333,7 @@ mod test {
             Ok((
                 "",
                 super::StringProperty {
+                    class: String::from("StringProperty"),
                     name: String::from("baz"),
                     default_value: Some(String::from("Hello World")),
                     regex_validator: Some(super::StringRegexValidator {
@@ -295,5 +350,33 @@ mod test {
             )),
             "Should parse string with both default and regex and length in a different order"
         );
+    }
+
+    #[test]
+    fn test_serialize() {
+        let a = super::StringProperty {
+            class: String::from("StringProperty"),
+            name: String::from("aProperty"),
+            is_array: true,
+            is_optional: false,
+            default_value: Some("Hello world".into()),
+            regex_validator: Some(super::StringRegexValidator {
+                pattern: "abc.*".into(),
+                flags: "".into(),
+            }),
+            length_validator: None,
+        };
+
+        assert_eq!(
+            serde_json::json!({
+              "$class": "StringProperty",
+              "name": "aProperty",
+              "isArray": true,
+              "isOptional": false,
+              "default": "Hello world",
+              "regex": "abc.*"
+            }),
+            serde_json::to_value(a).unwrap(),
+        )
     }
 }

@@ -10,14 +10,18 @@ pub mod string_property;
 use nom::{
     character::complete::space1, error::context, multi::fold_many_m_n, sequence::preceded, Parser,
 };
+use serde_derive::Serialize;
 
 use crate::parser::{common::keywords, property::internal::generic_property, CResult};
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct Property {
+    #[serde(rename = "$class")]
     pub class: String,
     pub name: String,
+    #[serde(rename = "isOptional")]
     pub is_optional: bool,
+    #[serde(rename = "isArray")]
     pub is_array: bool,
 }
 
@@ -63,6 +67,7 @@ pub fn imported_property<'a>(input: &'a str) -> CResult<&'a str, Property> {
 
 #[cfg(test)]
 mod test {
+
     #[test]
     fn test_imported_property() {
         assert_eq!(
@@ -120,5 +125,25 @@ mod test {
             )),
             "Should parse imported type with optional and array flag"
         );
+    }
+
+    #[test]
+    fn test_serialize() {
+        let a = super::Property {
+            class: String::from("MyProperty"),
+            name: String::from("aProperty"),
+            is_array: false,
+            is_optional: true,
+        };
+
+        assert_eq!(
+            serde_json::json!({
+              "$class": "MyProperty",
+              "name": "aProperty",
+              "isArray": false,
+              "isOptional": true,
+            }),
+            serde_json::to_value(a).unwrap(),
+        )
     }
 }

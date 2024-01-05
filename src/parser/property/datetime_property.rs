@@ -7,6 +7,7 @@ use nom::{
     sequence::{preceded, tuple},
     Parser,
 };
+use serde_derive::Serialize;
 
 use crate::parser::{
     common::{datetime::datetime_value, keywords},
@@ -14,11 +15,17 @@ use crate::parser::{
     CResult,
 };
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct DateTimeProperty {
+    #[serde(rename = "$class")]
+    pub class: String,
     pub name: String,
+    #[serde(rename = "isOptional")]
     pub is_optional: bool,
+    #[serde(rename = "isArray")]
     pub is_array: bool,
+    #[serde(rename = "default")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub default_value: Option<String>,
 }
 
@@ -49,6 +56,7 @@ pub fn datetime_property<'a>(input: &'a str) -> CResult<&'a str, DateTimePropert
             ))
             .map(|((property_name, is_array), meta_props)| {
                 let mut prop = DateTimeProperty {
+                    class: String::from("DateTimeProperty"),
                     name: property_name.to_string(),
                     default_value: None,
                     is_optional: false,
@@ -88,6 +96,7 @@ mod test {
                 "",
                 super::DateTimeProperty {
                     name: String::from("foo"),
+                    class: String::from("DateTimeProperty"),
                     default_value: None,
                     is_optional: false,
                     is_array: false,
@@ -102,6 +111,7 @@ mod test {
                 "",
                 super::DateTimeProperty {
                     name: String::from("baz"),
+                    class: String::from("DateTimeProperty"),
                     default_value: Some(String::from("2024-01-04T18:39:55+02:30")),
                     is_optional: false,
                     is_array: false,
@@ -116,6 +126,7 @@ mod test {
                 "",
                 super::DateTimeProperty {
                     name: String::from("baz"),
+                    class: String::from("DateTimeProperty"),
                     default_value: Some(String::from("2024-01-04T18:39:55+02:30")),
                     is_optional: true,
                     is_array: false,
@@ -130,6 +141,7 @@ mod test {
                 "",
                 super::DateTimeProperty {
                     name: String::from("baz"),
+                    class: String::from("DateTimeProperty"),
                     default_value: Some(String::from("2024-01-04T18:39:55+02:30")),
                     is_optional: true,
                     is_array: true,
@@ -144,6 +156,7 @@ mod test {
                 " default=42",
                 super::DateTimeProperty {
                     name: String::from("baz"),
+                    class: String::from("DateTimeProperty"),
                     default_value: None,
                     is_optional: false,
                     is_array: false,

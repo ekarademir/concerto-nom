@@ -7,6 +7,7 @@ use nom::{
     sequence::{preceded, tuple},
     Parser,
 };
+use serde_derive::Serialize;
 
 use crate::parser::{
     common::{keywords, numeric::long_value},
@@ -14,12 +15,20 @@ use crate::parser::{
     CResult,
 };
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Serialize)]
 pub struct LongProperty {
+    #[serde(rename = "$class")]
+    pub class: String,
     pub name: String,
+    #[serde(rename = "isOptional")]
     pub is_optional: bool,
+    #[serde(rename = "isArray")]
     pub is_array: bool,
+    #[serde(rename = "default")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub default_value: Option<i64>,
+    #[serde(rename = "range")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub domain_validator: Option<LongDomainValidator>,
 }
 
@@ -27,6 +36,26 @@ pub struct LongProperty {
 pub struct LongDomainValidator {
     pub lower: Option<i64>,
     pub upper: Option<i64>,
+}
+
+impl serde::Serialize for LongDomainValidator {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&String::from(self))
+    }
+}
+
+impl From<&LongDomainValidator> for String {
+    fn from(value: &LongDomainValidator) -> Self {
+        match (value.lower, value.upper) {
+            (None, None) => Self::from(""),
+            (Some(lower), Some(upper)) => format!("[{}, {}]", lower, upper),
+            (None, Some(upper)) => format!("[, {}]", upper),
+            (Some(lower), None) => format!("[{},]", lower),
+        }
+    }
 }
 
 impl From<Ranged<i64>> for LongDomainValidator {
@@ -72,6 +101,7 @@ pub fn long_property<'a>(input: &'a str) -> CResult<&'a str, LongProperty> {
             ))
             .map(|((property_name, is_array), meta_props)| {
                 let mut prop = LongProperty {
+                    class: String::from("LongProperty"),
                     name: property_name.to_string(),
                     default_value: None,
                     domain_validator: None,
@@ -119,6 +149,7 @@ mod test {
             Ok((
                 "",
                 super::LongProperty {
+                    class: String::from("LongProperty"),
                     name: String::from("foo"),
                     default_value: None,
                     domain_validator: None,
@@ -134,6 +165,7 @@ mod test {
             Ok((
                 "",
                 super::LongProperty {
+                    class: String::from("LongProperty"),
                     name: String::from("baz"),
                     default_value: Some(42),
                     domain_validator: None,
@@ -149,6 +181,7 @@ mod test {
             Ok((
                 "",
                 super::LongProperty {
+                    class: String::from("LongProperty"),
                     name: String::from("baz"),
                     default_value: Some(42),
                     domain_validator: None,
@@ -164,6 +197,7 @@ mod test {
             Ok((
                 " default='Hello'",
                 super::LongProperty {
+                    class: String::from("LongProperty"),
                     name: String::from("baz"),
                     default_value: None,
                     domain_validator: None,
@@ -179,6 +213,7 @@ mod test {
             Ok((
                 "",
                 super::LongProperty {
+                    class: String::from("LongProperty"),
                     name: String::from("baz"),
                     default_value: None,
                     domain_validator: Some(super::LongDomainValidator {
@@ -197,6 +232,7 @@ mod test {
             Ok((
                 "",
                 super::LongProperty {
+                    class: String::from("LongProperty"),
                     name: String::from("baz"),
                     default_value: None,
                     domain_validator: Some(super::LongDomainValidator {
@@ -215,6 +251,7 @@ mod test {
             Ok((
                 "",
                 super::LongProperty {
+                    class: String::from("LongProperty"),
                     name: String::from("baz"),
                     default_value: Some(-42),
                     domain_validator: Some(super::LongDomainValidator {
@@ -233,6 +270,7 @@ mod test {
             Ok((
                 " \tdefault  =  'Hello'    range=[,100]",
                 super::LongProperty {
+                    class: String::from("LongProperty"),
                     name: String::from("baz"),
                     default_value: None,
                     domain_validator: None,
@@ -248,6 +286,7 @@ mod test {
             Ok((
                 "",
                 super::LongProperty {
+                    class: String::from("LongProperty"),
                     name: String::from("baz"),
                     default_value: Some(42),
                     domain_validator: Some(super::LongDomainValidator {
