@@ -74,9 +74,9 @@ impl From<property::Property> for Property {
     }
 }
 
-fn concept_property<'a>(input: &'a str) -> CResult<&'a str, Property> {
+fn any_proeprty<'a>(input: &'a str) -> CResult<&'a str, Property> {
     context(
-        "ConcaptProperty",
+        "ConceptProperty",
         alt((
             into(property::string_property::string_property),
             into(property::boolean_property::boolean_property),
@@ -84,7 +84,7 @@ fn concept_property<'a>(input: &'a str) -> CResult<&'a str, Property> {
             into(property::long_property::long_property),
             into(property::datetime_property::datetime_property),
             into(property::double_property::double_property),
-            into(property::imported_property),
+            into(property::concept_property),
         )),
     )(input)
 }
@@ -93,7 +93,7 @@ pub fn declaration<'a>(input: &'a str) -> CResult<&'a str, Declaration> {
     let properties = context(
         "Properties",
         fold_many0(
-            delimited(space0, concept_property, tuple((space0, line_ending))),
+            delimited(space0, any_proeprty, tuple((space0, line_ending))),
             Vec::new,
             |mut acc: Vec<_>, item: Property| {
                 acc.push(item);

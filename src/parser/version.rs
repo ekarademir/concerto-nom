@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 use nom::{
     branch::alt,
     bytes::complete::{tag, take_while},

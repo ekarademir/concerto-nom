@@ -29,7 +29,7 @@ enum MetaProperty {
     Optional,
 }
 
-pub fn imported_property<'a>(input: &'a str) -> CResult<&'a str, Property> {
+pub fn concept_property<'a>(input: &'a str) -> CResult<&'a str, Property> {
     let optional = preceded(space1, keywords::optional).map(|_| MetaProperty::Optional);
 
     context(
@@ -71,7 +71,7 @@ mod test {
     #[test]
     fn test_imported_property() {
         assert_eq!(
-            super::imported_property("o MyType foo"),
+            super::concept_property("o MyType foo"),
             Ok((
                 "",
                 super::Property {
@@ -85,7 +85,7 @@ mod test {
         );
 
         assert_eq!(
-            super::imported_property("o MyType[] foo"),
+            super::concept_property("o MyType[] foo"),
             Ok((
                 "",
                 super::Property {
@@ -99,7 +99,7 @@ mod test {
         );
 
         assert_eq!(
-            super::imported_property("o MyType baz optional"),
+            super::concept_property("o MyType baz optional"),
             Ok((
                 "",
                 super::Property {
@@ -113,7 +113,7 @@ mod test {
         );
 
         assert_eq!(
-            super::imported_property("o MyType[] baz optional"),
+            super::concept_property("o MyType[] baz optional"),
             Ok((
                 "",
                 super::Property {
