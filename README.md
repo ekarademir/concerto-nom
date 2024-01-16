@@ -1,4 +1,4 @@
-# concerto-rs
+# concerto-nom
 
 A parser for [Concerto](https://github.com/accordproject/concerto) modeling language, written in Rust.
 
